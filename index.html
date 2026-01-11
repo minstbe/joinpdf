@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="Split and merge PDF files online with no upload. Files never leave your device — processing happens in your browser.">
+  <title>PDF Split &amp; Merge | Split Pages and Combine PDFs Online</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib/dist/pdf-lib.min.js"></script>
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">PDF Split &amp; Merge</div>
+    <div class="subtitle">Split pages or merge files — fast and simple</div>
+    <div class="actions">
+      <button id="themeToggle" class="btn ghost">Toggle Theme</button>
+      <button id="helpBtn" class="btn ghost">Help</button>
+      <button id="feedbackBtn" class="btn ghost">Feedback</button>
+    </div>
+    <div class="privacy-banner">Privacy-first: No upload. Files never leave your device. All processing happens in your browser.</div>
+  </header>
+  <main class="container">
+    <section class="card">
+      <h2 class="card-title">Split PDF</h2>
+      <p class="card-desc">Extract specific pages and download a new PDF.</p>
+      <p class="note">No upload — files stay on your device.</p>
+      <div class="field">
+        <label for="splitFile">Select a PDF</label>
+        <input id="splitFile" type="file" accept="application/pdf">
+      </div>
+      <div class="field">
+        <label for="pageSpec">Pages to extract</label>
+        <input id="pageSpec" type="text" placeholder="e.g. 1,1,3-5,7-2">
+      </div>
+      <div class="field">
+        <label for="splitName">Output filename (optional)</label>
+        <input id="splitName" type="text" placeholder="e.g. report_split">
+      </div>
+      <div class="actions">
+        <button id="splitBtn" class="btn primary">Extract Pages</button>
+        <div id="splitStatus" class="status"></div>
+      </div>
+    </section>
+    <section class="card">
+      <h2 class="card-title">Merge PDFs</h2>
+      <p class="card-desc">Combine multiple PDFs, drag to reorder, and download.</p>
+      <p class="note">No upload — files stay on your device.</p>
+      <div class="field">
+        <label for="mergeFiles">Select PDF files</label>
+        <input id="mergeFiles" type="file" multiple accept="application/pdf">
+      </div>
+      <div class="list-header">
+        <div>Selected Files</div>
+        <div class="hint">Drag items to reorder</div>
+      </div>
+      <ul id="fileList" class="file-list"></ul>
+      <div class="field">
+        <label for="mergeName">Output filename (optional)</label>
+        <input id="mergeName" type="text" placeholder="e.g. merged_report">
+      </div>
+      <div class="actions">
+        <button id="clearListBtn" class="btn ghost">Clear List</button>
+        <button id="mergeBtn" class="btn primary">Merge Files</button>
+        <div id="mergeStatus" class="status"></div>
+      </div>
+    </section>
+  </main>
+  <footer class="footer">
+    <div>All processing happens in your browser.</div>
+  </footer>
+  <div id="helpModal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">How to Use</div>
+        <button id="helpClose" class="btn ghost">Close</button>
+      </div>
+      <div class="modal-body">
+        <h3>Split PDF</h3>
+        <p>Select a PDF, enter pages like 1,1,3-5,7-2, or use all.</p>
+        <p>Reverse ranges are supported (e.g., 7-2). Duplicates keep order.</p>
+        <p>Optionally set an output filename. Click Extract Pages to download.</p>
+        <h3>Merge PDFs</h3>
+        <p>Select multiple PDFs. Drag items or use ▲/▼ to reorder.</p>
+        <p>Optionally set an output filename. Click Merge Files to download.</p>
+        <h3>Privacy</h3>
+        <p>No upload. Files never leave your device; processing happens locally.</p>
+        <h3>Theme & Mobile</h3>
+        <p>Use Toggle Theme. On mobile, use ▲/▼ for reliable ordering.</p>
+      </div>
+    </div>
+  </div>
+  <div id="feedbackModal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">Feedback</div>
+        <button id="feedbackClose" class="btn ghost">Close</button>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+          <label for="feedbackInput">Your suggestion</label>
+          <textarea id="feedbackInput" rows="4" placeholder="Write your suggestion..."></textarea>
+        </div>
+        <div class="actions">
+          <button id="feedbackSubmit" class="btn primary">Submit</button>
+          <button id="feedbackRefresh" class="btn ghost">Refresh</button>
+          <div id="feedbackStatus" class="status"></div>
+        </div>
+        <ul id="messagesList" class="messages-list"></ul>
+      </div>
+    </div>
+  </div>
+  <script src="app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+.git
+.gitignore
+server.py
+feedback.db
+setup.md
+t.txt
+README.md
+__pycache__
+*.pyc
