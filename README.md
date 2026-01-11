@@ -2,6 +2,8 @@
 
 A privacy-first, purely client-side PDF manipulation tool. Split pages, merge documents, and organize your PDF files directly in your browser without ever uploading data to a server.
 
+[Live Demo](https://joinpdf.top/) — try the tool online.
+
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Privacy](https://img.shields.io/badge/Privacy-100%25-green.svg)
 
@@ -35,6 +37,10 @@ http-server -p 5500
 
 **Just Open the File:**
 Simply double-click `index.html` to open it in your browser.
+
+### Option C: Live Demo
+
+Visit the production site: https://joinpdf.top/
 
 ### Option B: Docker Deployment
 

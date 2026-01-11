@@ -26,6 +26,11 @@ let splitFileRef = null
 let mergeItems = []
 let draggingIndex = null
 const API_BASE = (location.hostname === "localhost" || location.hostname === "127.0.0.1") ? "http://localhost:5600" : ""
+function track(event, params) {
+  try {
+    if (typeof gtag === "function") gtag("event", event, params || {})
+  } catch (e) {}
+}
 function parsePages(spec, total) {
   if (!spec || typeof spec !== "string") return null
   const cleaned = spec.replace(/\s+/g, "")
@@ -131,11 +136,13 @@ splitFileInput.addEventListener("change", e => {
 splitBtn.addEventListener("click", async () => {
   if (!splitFileRef) {
     setStatus(splitStatus, "Please select a PDF.")
+    track("split_missing_file")
     return
   }
   setBusy(splitBtn, true, "Extract Pages", "Processing...")
   setStatus(splitStatus, "")
   try {
+    track("split_start")
     const buffer = await splitFileRef.arrayBuffer()
     const src = await PDFLib.PDFDocument.load(buffer)
     const total = src.getPageCount()
@@ -143,6 +150,7 @@ splitBtn.addEventListener("click", async () => {
     if (!indices || indices.length === 0) {
       setStatus(splitStatus, "Invalid page specification.")
       setBusy(splitBtn, false, "Extract Pages", "Processing...")
+      track("split_invalid_pages")
       return
     }
     const out = await PDFLib.PDFDocument.create()
@@ -154,8 +162,10 @@ splitBtn.addEventListener("click", async () => {
     const finalName = custom || base + "_split.pdf"
     downloadBytes(bytes, finalName)
     setStatus(splitStatus, "Done.")
+    track("split_success", { pages: indices.length })
   } catch (err) {
     setStatus(splitStatus, "Failed to process file.")
+    track("split_error")
   } finally {
     setBusy(splitBtn, false, "Extract Pages", "Processing...")
   }
@@ -167,11 +177,13 @@ mergeFilesInput.addEventListener("change", e => {
   }
   renderList()
   setStatus(mergeStatus, "")
+  track("merge_files_selected", { count: files.length })
 })
 clearListBtn.addEventListener("click", () => {
   mergeItems = []
   renderList()
   setStatus(mergeStatus, "")
+  track("merge_list_cleared")
 })
 function renderList() {
   fileListEl.innerHTML = ""
@@ -248,11 +260,13 @@ function renderList() {
 mergeBtn.addEventListener("click", async () => {
   if (mergeItems.length === 0) {
     setStatus(mergeStatus, "Please add PDF files.")
+    track("merge_missing_files")
     return
   }
   setBusy(mergeBtn, true, "Merge Files", "Processing...")
   setStatus(mergeStatus, "")
   try {
+    track("merge_start", { count: mergeItems.length })
     const out = await PDFLib.PDFDocument.create()
     for (const item of mergeItems) {
       const buffer = await item.file.arrayBuffer()
@@ -266,8 +280,10 @@ mergeBtn.addEventListener("click", async () => {
     const custom = ensurePdfName(mergeNameInput.value)
     downloadBytes(bytes, custom || "merged.pdf")
     setStatus(mergeStatus, "Done.")
+    track("merge_success", { count: mergeItems.length })
   } catch (err) {
     setStatus(mergeStatus, "Failed to process files.")
+    track("merge_error")
   } finally {
     setBusy(mergeBtn, false, "Merge Files", "Processing...")
   }
@@ -278,8 +294,10 @@ async function fetchMessages() {
     if (!res.ok) throw new Error()
     const data = await res.json()
     renderMessages(data)
+    track("feedback_messages_loaded", { count: Array.isArray(data) ? data.length : 0 })
   } catch (e) {
     setStatus(feedbackStatus, "Failed to load messages.")
+    track("feedback_messages_error")
   }
 }
 function renderMessages(items) {
@@ -321,8 +339,10 @@ feedbackSubmit.addEventListener("click", async () => {
     feedbackInput.value = ""
     setStatus(feedbackStatus, "Submitted.")
     await fetchMessages()
+    track("feedback_submit_success")
   } catch (e) {
     setStatus(feedbackStatus, "Failed to submit.")
+    track("feedback_submit_error")
   } finally {
     setBusy(feedbackSubmit, false, "Submit", "Submitting...")
   }
@@ -330,6 +350,7 @@ feedbackSubmit.addEventListener("click", async () => {
 feedbackRefresh.addEventListener("click", () => {
   setStatus(feedbackStatus, "")
   fetchMessages()
+  track("feedback_refresh")
 })
 fetchMessages()
 function applyTheme(initial) {
@@ -343,4 +364,5 @@ themeToggle.addEventListener("click", () => {
   const next = current === "dark" ? "light" : "dark"
   localStorage.setItem("theme", next)
   applyTheme(next)
+  track("theme_toggle", { theme: next })
 })
