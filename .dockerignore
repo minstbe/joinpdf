@@ -1,9 +1,11 @@
 .git
 .gitignore
+.env
 server.py
 feedback.db
 setup.md
 t.txt
 README.md
+generate_posts.py
 __pycache__
 *.pyc

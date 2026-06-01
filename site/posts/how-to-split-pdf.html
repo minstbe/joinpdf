@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="Extract pages like 1,1,3-5,7-2 without uploading files.">
+  <meta name="robots" content="index, follow">
+  <meta property="og:title" content="How to Split a PDF (Client-side, Privacy-first)">
+  <meta property="og:description" content="Extract pages like 1,1,3-5,7-2 without uploading files.">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://joinpdf.top/posts/how-to-split-pdf.html">
+  <meta property="og:site_name" content="PDF Split & Merge">
+  <meta property="article:published_time" content="2026-01-11">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="How to Split a PDF (Client-side, Privacy-first)">
+  <meta name="twitter:description" content="Extract pages like 1,1,3-5,7-2 without uploading files.">
+  <link rel="canonical" href="https://joinpdf.top/posts/how-to-split-pdf.html">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": "How to Split a PDF (Client-side, Privacy-first)",
+    "description": "Extract pages like 1,1,3-5,7-2 without uploading files.",
+    "datePublished": "2026-01-11",
+    "author": { "@type": "Organization", "name": "PDF Split & Merge" },
+    "publisher": { "@type": "Organization", "name": "PDF Split & Merge", "url": "https://joinpdf.top/" },
+    "mainEntityOfPage": { "@type": "WebPage", "@id": "https://joinpdf.top/posts/how-to-split-pdf.html" }
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://joinpdf.top/" },
+      { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://joinpdf.top/blog.html" },
+      { "@type": "ListItem", "position": 3, "name": "How to Split a PDF (Client-side, Privacy-first)", "item": "https://joinpdf.top/posts/how-to-split-pdf.html" }
+    ]
+  }
+  </script>
+  <title>How to Split a PDF (Client-side, Privacy-first) | PDF Split &amp; Merge Blog</title>
+  <link rel="stylesheet" href="../styles.css">
+  <script>
+    (function(id){
+      var s=document.createElement("script")
+      s.async=true
+      s.src="https://www.googletagmanager.com/gtag/js?id="+id
+      document.head.appendChild(s)
+      window.dataLayer=window.dataLayer||[]
+      function gtag(){dataLayer.push(arguments)}
+      window.gtag=gtag
+      gtag("js",new Date())
+      gtag("config",id,{anonymize_ip:true,send_page_view:true})
+    })("G-4EXX1BTT8K")
+  </script>
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">PDF Split &amp; Merge</div>
+    <div class="subtitle">Articles: tips, guides, and privacy</div>
+    <div class="actions">
+      <a href="../index.html" class="btn ghost">Home</a>
+      <a href="../blog.html" class="btn ghost">Blog</a>
+      <button id="themeToggle" class="btn ghost">Toggle Theme</button>
+    </div>
+  </header>
+  <main class="container">
+    <article class="card" style="grid-column: 1 / -1;">
+      <h1 class="card-title">How to Split a PDF (Client-side, Privacy-first)</h1>
+      <p class="card-desc">Published on 2026-01-11 &middot; Extract pages like 1,1,3-5,7-2 without uploading files.</p>
+      <p>This guide shows how to split a PDF into specific pages without uploading files. All processing happens locally in your browser.</p>
+<h2>Why client-side?</h2>
+<p>Documents can contain sensitive information. Processing PDFs entirely in the browser avoids sending files to third-party servers.</p>
+<h2>Quick steps</h2>
+<ol>
+  <li>Open <a href="https://joinpdf.top/">joinpdf.top</a>.</li>
+  <li>Select a PDF under <strong>Split PDF</strong>.</li>
+  <li>Enter pages like <code>1,1,3-5,7-2</code> to extract specific ranges, including reverse ranges.</li>
+  <li>Optionally set an output filename.</li>
+  <li>Click <strong>Extract Pages</strong> to download the result.</li>
+</ol>
+<h2>Page syntax examples</h2>
+<ul>
+  <li><code>1,3,5</code> extracts pages 1, 3, and 5.</li>
+  <li><code>2-6</code> extracts pages 2 through 6.</li>
+  <li><code>7-2</code> extracts pages 7 down to 2 (reverse order).</li>
+  <li><code>all</code> extracts all pages.</li>
+</ul>
+<h2>Tips</h2>
+<ul>
+  <li>Duplicates keep order (e.g., <code>1,1</code> will duplicate page 1).</li>
+  <li>Use a descriptive filename to organize output versions.</li>
+</ul>
+<p>Try it now on <a href="https://joinpdf.top/">joinpdf.top</a>.</p>
+    </article>
+  </main>
+  <footer class="footer">
+    <div>All processing happens in your browser. No data is ever uploaded to a server.</div>
+    <div class="footer-links">
+      <a href="../index.html">Home</a>
+      <span>&middot;</span>
+      <a href="../blog.html">Blog</a>
+      <span>&middot;</span>
+      <a href="https://github.com" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </footer>
+  <script>
+    function track(event, params){ try{ if(typeof gtag==="function") gtag("event", event, params||{}) }catch(e){} }
+    function applyTheme(initial){ var t = initial==="dark" ? "dark" : "light"; document.documentElement.setAttribute("data-theme", t) }
+    var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
+    applyTheme(localStorage.getItem("theme") || (prefersDark ? "dark" : "light"))
+    document.getElementById("themeToggle").addEventListener("click", function() {
+      var current = document.documentElement.getAttribute("data-theme")
+      var next = current==="dark" ? "light" : "dark"
+      localStorage.setItem("theme", next)
+      applyTheme(next)
+      track("theme_toggle", { theme: next })
+    })
+    track("blog_post_view", { slug: "how-to-split-pdf" })
+  </script>
+</body>
+</html>

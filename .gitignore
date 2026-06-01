@@ -17,4 +17,5 @@ tests/**/coverage/
 *.sln
 *.tok
 *.db
+.env
 

@@ -1,0 +1,22 @@
+services:
+  web:
+    image: nginx:alpine
+    container_name: pdf-web
+    volumes:
+      - ./site:/usr/share/nginx/html:ro
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+
+  api:
+    image: python:3.11-alpine
+    container_name: pdf-api
+    working_dir: /app
+    volumes:
+      - ./api:/app
+    command: python server.py
+    environment:
+      - ADMIN_KEY=${ADMIN_KEY}
+    ports:
+      - "5600:5600"
+    restart: unless-stopped

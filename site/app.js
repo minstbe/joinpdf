@@ -25,7 +25,10 @@ const feedbackStatus = document.getElementById("feedbackStatus")
 let splitFileRef = null
 let mergeItems = []
 let draggingIndex = null
-const API_BASE = (location.hostname === "localhost" || location.hostname === "127.0.0.1") ? "http://localhost:5600" : ""
+const API_BASE = (location.hostname === "localhost" || location.hostname === "127.0.0.1")
+  ? (location.port === "5600" ? "" : "http://localhost:5600")
+  : ""
+const MAX_FILE_SIZE = 100 * 1024 * 1024
 function track(event, params) {
   try {
     if (typeof gtag === "function") gtag("event", event, params || {})
@@ -69,8 +72,9 @@ function setBusy(el, busy, textIdle, textBusy) {
     el.textContent = textIdle
   }
 }
-function setStatus(el, text) {
+function setStatus(el, text, type) {
   el.textContent = text || ""
+  setStatusClass(el, type || "")
 }
 function genId() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID()
@@ -83,6 +87,17 @@ function genId() {
     return h.slice(0, 8) + "-" + h.slice(8, 12) + "-" + h.slice(12, 16) + "-" + h.slice(16, 20) + "-" + h.slice(20)
   }
   return "id-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10)
+}
+function formatSize(bytes) {
+  if (!bytes || bytes === 0) return "0 B"
+  const k = 1024
+  const sizes = ["B", "KB", "MB", "GB"]
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i]
+}
+function setStatusClass(el, type) {
+  el.classList.remove("success", "error")
+  if (type) el.classList.add(type)
 }
 function ensurePdfName(name) {
   const trimmed = (name || "").trim()
@@ -135,12 +150,23 @@ splitFileInput.addEventListener("change", e => {
 })
 splitBtn.addEventListener("click", async () => {
   if (!splitFileRef) {
-    setStatus(splitStatus, "Please select a PDF.")
+    setStatus(splitStatus, "Please select a PDF.", "error")
     track("split_missing_file")
+    return
+  }
+  if (splitFileRef.size > MAX_FILE_SIZE) {
+    setStatus(splitStatus, "File is too large (max 100 MB). Please use a smaller file.", "error")
+    track("split_file_too_large")
     return
   }
   setBusy(splitBtn, true, "Extract Pages", "Processing...")
   setStatus(splitStatus, "")
+  const showSpinner = splitFileRef.size > 10 * 1024 * 1024
+  if (showSpinner) {
+    const sp = document.createElement("span")
+    sp.className = "spinner"
+    splitBtn.prepend(sp)
+  }
   try {
     track("split_start")
     const buffer = await splitFileRef.arrayBuffer()
@@ -148,7 +174,7 @@ splitBtn.addEventListener("click", async () => {
     const total = src.getPageCount()
     const indices = parsePages(pageSpecInput.value || "", total)
     if (!indices || indices.length === 0) {
-      setStatus(splitStatus, "Invalid page specification.")
+      setStatus(splitStatus, "Invalid page specification.", "error")
       setBusy(splitBtn, false, "Extract Pages", "Processing...")
       track("split_invalid_pages")
       return
@@ -161,13 +187,15 @@ splitBtn.addEventListener("click", async () => {
     const custom = ensurePdfName(splitNameInput.value)
     const finalName = custom || base + "_split.pdf"
     downloadBytes(bytes, finalName)
-    setStatus(splitStatus, "Done.")
+    setStatus(splitStatus, "Done. " + indices.length + " pages extracted.", "success")
     track("split_success", { pages: indices.length })
   } catch (err) {
-    setStatus(splitStatus, "Failed to process file.")
+    setStatus(splitStatus, "Failed to process file.", "error")
     track("split_error")
   } finally {
     setBusy(splitBtn, false, "Extract Pages", "Processing...")
+    const sp = splitBtn.querySelector(".spinner")
+    if (sp) sp.remove()
   }
 })
 mergeFilesInput.addEventListener("change", e => {
@@ -198,6 +226,9 @@ function renderList() {
     const name = document.createElement("div")
     name.className = "filename"
     name.textContent = item.name
+    const meta = document.createElement("div")
+    meta.className = "file-meta"
+    meta.textContent = formatSize(item.file.size)
     const up = document.createElement("button")
     up.className = "move"
     up.textContent = "▲"
@@ -232,39 +263,54 @@ function renderList() {
     })
     li.appendChild(handle)
     li.appendChild(name)
+    li.appendChild(meta)
     li.appendChild(up)
     li.appendChild(down)
     li.appendChild(remove)
-    li.addEventListener("dragstart", () => {
+    li.addEventListener("dragstart", (e) => {
       draggingIndex = parseInt(li.dataset.index, 10)
       li.classList.add("dragging")
+      e.dataTransfer.effectAllowed = "move"
     })
     li.addEventListener("dragend", () => {
       draggingIndex = null
       li.classList.remove("dragging")
-      renderList()
     })
-    li.addEventListener("dragover", e => {
+    li.addEventListener("dragover", (e) => {
+      e.preventDefault()
+      e.dataTransfer.dropEffect = "move"
+    })
+    li.addEventListener("drop", (e) => {
       e.preventDefault()
       const targetIndex = parseInt(li.dataset.index, 10)
-      if (draggingIndex === null || draggingIndex === targetIndex) return
-      const a = mergeItems[draggingIndex]
-      mergeItems.splice(draggingIndex, 1)
-      mergeItems.splice(targetIndex, 0, a)
-      draggingIndex = targetIndex
-      renderList()
+      if (draggingIndex !== null && draggingIndex !== targetIndex) {
+        const [moved] = mergeItems.splice(draggingIndex, 1)
+        mergeItems.splice(targetIndex, 0, moved)
+        renderList()
+      }
     })
     fileListEl.appendChild(li)
   }
 }
 mergeBtn.addEventListener("click", async () => {
   if (mergeItems.length === 0) {
-    setStatus(mergeStatus, "Please add PDF files.")
+    setStatus(mergeStatus, "Please add PDF files.", "error")
     track("merge_missing_files")
+    return
+  }
+  const totalSize = mergeItems.reduce((s, it) => s + it.file.size, 0)
+  if (totalSize > MAX_FILE_SIZE) {
+    setStatus(mergeStatus, "Total file size exceeds 100 MB. Please reduce the number or size of files.", "error")
+    track("merge_file_too_large")
     return
   }
   setBusy(mergeBtn, true, "Merge Files", "Processing...")
   setStatus(mergeStatus, "")
+  if (totalSize > 10 * 1024 * 1024) {
+    const sp = document.createElement("span")
+    sp.className = "spinner"
+    mergeBtn.prepend(sp)
+  }
   try {
     track("merge_start", { count: mergeItems.length })
     const out = await PDFLib.PDFDocument.create()
@@ -279,25 +325,25 @@ mergeBtn.addEventListener("click", async () => {
     const bytes = await out.save()
     const custom = ensurePdfName(mergeNameInput.value)
     downloadBytes(bytes, custom || "merged.pdf")
-    setStatus(mergeStatus, "Done.")
+    setStatus(mergeStatus, "Done. " + mergeItems.length + " files merged.", "success")
     track("merge_success", { count: mergeItems.length })
   } catch (err) {
-    setStatus(mergeStatus, "Failed to process files.")
+    setStatus(mergeStatus, "Failed to process files.", "error")
     track("merge_error")
   } finally {
     setBusy(mergeBtn, false, "Merge Files", "Processing...")
+    const sp = mergeBtn.querySelector(".spinner")
+    if (sp) sp.remove()
   }
 })
 async function fetchMessages() {
   try {
-    const res = await fetch(`${API_BASE}/api/messages`)
+    const res = await fetch(`${API_BASE}/api/messages/public`)
     if (!res.ok) throw new Error()
     const data = await res.json()
     renderMessages(data)
     track("feedback_messages_loaded", { count: Array.isArray(data) ? data.length : 0 })
   } catch (e) {
-    setStatus(feedbackStatus, "Failed to load messages.")
-    track("feedback_messages_error")
   }
 }
 function renderMessages(items) {
@@ -324,7 +370,7 @@ function renderMessages(items) {
 feedbackSubmit.addEventListener("click", async () => {
   const text = (feedbackInput.value || "").trim()
   if (!text) {
-    setStatus(feedbackStatus, "Please enter your suggestion.")
+    setStatus(feedbackStatus, "Please enter your suggestion.", "error")
     return
   }
   setBusy(feedbackSubmit, true, "Submit", "Submitting...")
@@ -337,11 +383,11 @@ feedbackSubmit.addEventListener("click", async () => {
     })
     if (!res.ok) throw new Error()
     feedbackInput.value = ""
-    setStatus(feedbackStatus, "Submitted.")
+    setStatus(feedbackStatus, "Submitted.", "success")
     await fetchMessages()
     track("feedback_submit_success")
   } catch (e) {
-    setStatus(feedbackStatus, "Failed to submit.")
+    setStatus(feedbackStatus, "Failed to submit. Is the server running?", "error")
     track("feedback_submit_error")
   } finally {
     setBusy(feedbackSubmit, false, "Submit", "Submitting...")

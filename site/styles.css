@@ -103,17 +103,21 @@ body {
   margin-bottom: 6px;
 }
 input[type="text"],
+input[type="password"],
 input[type="file"] {
   width: 100%;
 }
-input[type="text"] {
+input[type="text"],
+input[type="password"] {
   appearance: none;
   outline: none;
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 10px 12px;
   font-size: 16px;
-  transition: box-shadow .2s, border-color .2s;
+  background: var(--surface);
+  color: var(--text);
+  transition: box-shadow .2s, border-color .2s, background .2s, color .2s;
 }
 textarea {
   width: 100%;
@@ -123,10 +127,15 @@ textarea {
   border-radius: 10px;
   padding: 10px 12px;
   font-size: 16px;
+  background: var(--surface);
+  color: var(--text);
   resize: vertical;
   min-height: 100px;
+  transition: box-shadow .2s, border-color .2s, background .2s, color .2s;
 }
-input[type="text"]:focus {
+input[type="text"]:focus,
+input[type="password"]:focus,
+textarea:focus {
   border-color: #93c5fd;
   box-shadow: 0 0 0 4px rgba(147, 197, 253, 0.35);
 }
@@ -208,6 +217,10 @@ input[type="text"]:focus {
   color: var(--muted);
   font-size: 14px;
 }
+.status.success { color: #16a34a; }
+.status.error { color: #dc2626; }
+:root[data-theme="dark"] .status.success { color: #4ade80; }
+:root[data-theme="dark"] .status.error { color: #f87171; }
 .list-header {
   display: flex;
   align-items: baseline;
@@ -255,7 +268,7 @@ input[type="text"]:focus {
 }
 .file-item {
   display: grid;
-  grid-template-columns: auto 1fr auto auto auto;
+  grid-template-columns: auto 1fr auto auto auto auto;
   gap: 12px;
   align-items: center;
   padding: 10px 12px;
@@ -310,6 +323,25 @@ input[type="text"]:focus {
   color: var(--muted);
   font-size: 13px;
 }
+.footer-links {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.footer-links a {
+  color: var(--muted);
+  text-decoration: none;
+}
+.footer-links a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+.footer-small {
+  margin-top: 6px;
+  font-size: 11px;
+  opacity: 0.7;
+}
 @media (max-width: 640px) {
   .brand {
     font-size: 28px;
@@ -321,7 +353,33 @@ input[type="text"]:focus {
   .file-item {
     grid-template-columns: auto 1fr auto auto;
   }
+  .file-meta {
+    display: none;
+  }
   .handle {
     display: none;
   }
+}
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .6s linear infinite;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.file-meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+.file-size-warning {
+  color: #dc2626;
+  font-size: 12px;
+  margin-top: 4px;
 }

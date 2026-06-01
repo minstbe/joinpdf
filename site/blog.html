@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="Articles and guides on PDF editing, splitting and merging. Privacy-first, client-side techniques.">
+  <meta name="robots" content="index, follow">
+  <meta property="og:title" content="PDF Articles | PDF Split & Merge Blog">
+  <meta property="og:description" content="Articles and guides on PDF editing, splitting and merging. Privacy-first, client-side techniques.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://joinpdf.top/blog.html">
+  <meta property="og:site_name" content="PDF Split & Merge">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="PDF Articles | PDF Split & Merge Blog">
+  <meta name="twitter:description" content="Articles and guides on PDF editing, splitting and merging. Privacy-first, client-side techniques.">
+  <link rel="canonical" href="https://joinpdf.top/blog.html">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Blog",
+    "name": "PDF Split & Merge Blog",
+    "url": "https://joinpdf.top/blog.html",
+    "description": "Articles and guides on PDF editing, splitting and merging. Privacy-first, client-side techniques."
+  }
+  </script>
+  <title>PDF Articles | PDF Split & Merge Blog</title>
+  <link rel="stylesheet" href="styles.css">
+  <script>
+    (function(id){
+      var s=document.createElement("script")
+      s.async=true
+      s.src="https://www.googletagmanager.com/gtag/js?id="+id
+      document.head.appendChild(s)
+      window.dataLayer=window.dataLayer||[]
+      function gtag(){dataLayer.push(arguments)}
+      window.gtag=gtag
+      gtag("js",new Date())
+      gtag("config",id,{anonymize_ip:true,send_page_view:true})
+    })("G-4EXX1BTT8K")
+  </script>
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">PDF Split &amp; Merge</div>
+    <div class="subtitle">Articles: tips, guides, and privacy</div>
+    <div class="actions">
+      <a href="index.html" class="btn ghost">Home</a>
+      <button id="themeToggle" class="btn ghost">Toggle Theme</button>
+    </div>
+  </header>
+  <main class="container">
+    <section class="card" style="grid-column: 1 / -1;">
+      <h1 class="card-title">Latest Articles</h1>
+      <p class="card-desc">Guides on splitting, merging, and managing PDFs securely.</p>
+      <ul id="postList" class="file-list"></ul>
+    </section>
+  </main>
+  <footer class="footer">
+    <div>All processing happens in your browser.</div>
+    <div class="footer-links">
+      <a href="index.html">Home</a>
+      <span>&middot;</span>
+      <a href="https://github.com" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </footer>
+  <script>
+    function track(event, params){ try{ if(typeof gtag==="function") gtag("event", event, params||{}) }catch(e){} }
+    function applyTheme(initial){ var t = initial==="dark" ? "dark" : "light"; document.documentElement.setAttribute("data-theme", t) }
+    var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
+    applyTheme(localStorage.getItem("theme") || (prefersDark ? "dark" : "light"))
+    document.getElementById("themeToggle").addEventListener("click", function(){
+      var current = document.documentElement.getAttribute("data-theme")
+      var next = current==="dark" ? "light" : "dark"
+      localStorage.setItem("theme", next)
+      applyTheme(next)
+      track("theme_toggle", { theme: next })
+    })
+    var postList = document.getElementById("postList")
+    function renderList(items){
+      postList.innerHTML = ""
+      items.sort(function(a,b){ return (a.date < b.date) ? 1 : -1 })
+      items.forEach(function(it){
+        var li = document.createElement("li")
+        li.className = "file-item"
+        var handle = document.createElement("div"); handle.className = "handle"
+        var title = document.createElement("div"); title.className = "filename"; title.textContent = it.title
+        var link = document.createElement("a"); link.className = "move"; link.textContent = "Read"; link.href = "posts/" + encodeURIComponent(it.slug) + ".html"
+        var meta = document.createElement("div"); meta.className = "hint"; meta.textContent = (it.date||"") + (it.description ? " · "+it.description : "")
+        li.appendChild(handle); li.appendChild(title); li.appendChild(link); li.appendChild(meta)
+        postList.appendChild(li)
+      })
+    }
+    fetch("posts/index.json?t=" + Date.now()).then(function(r){ return r.json() }).then(function(items){
+      renderList(items)
+      track("blog_list_loaded", { count: items.length })
+    }).catch(function(){ track("blog_list_error") })
+  </script>
+</body>
+</html>

@@ -1,10 +1,4 @@
 FROM nginx:alpine
-
-# Copy static assets to Nginx html directory
-COPY index.html styles.css app.js /usr/share/nginx/html/
-
-# Expose port 80
+COPY . /usr/share/nginx/html/
 EXPOSE 80
-
-# Start Nginx
 CMD ["nginx", "-g", "daemon off;"]
