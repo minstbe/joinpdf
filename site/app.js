@@ -37,6 +37,8 @@ const previewCanvas = document.getElementById("previewCanvas")
 const previewDrawLayer = document.getElementById("previewDrawLayer")
 const previewLabel = document.getElementById("previewLabel")
 const closePreview = document.getElementById("closePreview")
+const prevPreview = document.getElementById("prevPreview")
+const nextPreview = document.getElementById("nextPreview")
 const annoToolbar = document.getElementById("annoToolbar")
 const annoColor = document.getElementById("annoColor")
 const clearPageAnno = document.getElementById("clearPageAnno")
@@ -202,7 +204,6 @@ async function renderThumbnails(file) {
       item.addEventListener("click", (e) => {
         if (e.target.closest(".remove-sel")) return
         togglePage(i - 1, e.shiftKey)
-        openPreview(i - 1)
       })
       const label = document.createElement("div")
       label.className = "thumb-label"
@@ -397,6 +398,9 @@ function renderSelectedStrip() {
     thumb.className = "selected-thumb"
     thumb.draggable = true
     thumb.dataset.selIdx = String(i)
+    thumb.dataset.pageIdx = String(pageIdx)
+    thumb.style.cursor = "pointer"
+    thumb.title = "Click to annotate page " + (pageIdx + 1)
     if (originalCanvas) {
       const clone = document.createElement("canvas")
       clone.className = "sel-canvas"
@@ -442,6 +446,11 @@ function renderSelectedStrip() {
         renderSelectedStrip()
         updatePageSpec()
       }
+    })
+    thumb.addEventListener("mousedown", () => {})
+    thumb.addEventListener("click", (e) => {
+      if (e.target.closest(".remove-sel")) return
+      openPreview(pageIdx, i)
     })
     selectedStrip.appendChild(thumb)
   }
@@ -560,10 +569,13 @@ function getLastTouchedPage() {
 }
 
 let previewPdfDoc = null
-async function openPreview(pageIdx) {
+let previewPosInSelection = 0
+async function openPreview(pageIdx, pos) {
   activePreviewPage = pageIdx
+  previewPosInSelection = (pos !== undefined) ? pos : selectedIndices.indexOf(pageIdx)
+  if (previewPosInSelection < 0) previewPosInSelection = 0
   previewArea.classList.remove("hidden")
-  previewLabel.textContent = "Page " + (pageIdx + 1)
+  updatePreviewNav()
   if (!splitFileRef) return
   try {
     if (!previewPdfDoc) {
@@ -581,6 +593,25 @@ async function openPreview(pageIdx) {
     redrawPreview(pageIdx)
   } catch (e) {}
 }
+function updatePreviewNav() {
+  const total = selectedIndices.length
+  const cur = previewPosInSelection + 1
+  previewLabel.textContent = "Page " + (activePreviewPage + 1) + (total > 1 ? " (" + cur + " of " + total + " selected)" : "")
+  prevPreview.style.opacity = previewPosInSelection > 0 ? "1" : "0.3"
+  nextPreview.style.opacity = previewPosInSelection < total - 1 ? "1" : "0.3"
+}
+prevPreview.addEventListener("click", () => {
+  if (previewPosInSelection > 0) {
+    const pageIdx = selectedIndices[previewPosInSelection - 1]
+    openPreview(pageIdx, previewPosInSelection - 1)
+  }
+})
+nextPreview.addEventListener("click", () => {
+  if (previewPosInSelection < selectedIndices.length - 1) {
+    const pageIdx = selectedIndices[previewPosInSelection + 1]
+    openPreview(pageIdx, previewPosInSelection + 1)
+  }
+})
 function redrawPreview(pageIdx) {
   const ctx = previewDrawLayer.getContext("2d")
   ctx.clearRect(0, 0, previewDrawLayer.width, previewDrawLayer.height)
