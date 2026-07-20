@@ -138,7 +138,15 @@ body {
 .card.collapsed .expand-hint {
   display: inline;
 }
+.card.drag-over {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.3), 0 10px 30px rgba(15, 23, 42, 0.15);
+  background: linear-gradient(0deg, rgba(37, 99, 235, 0.06), rgba(37, 99, 235, 0.06)), var(--surface);
+}
 .card.collapsed:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }

@@ -372,6 +372,50 @@ clearMerge.addEventListener("click", (e) => {
   setStatus(mergeStatus, "")
   if (!splitFileRef) resetCards()
 })
+
+function handleDragOver(el, e) {
+  e.preventDefault()
+  e.stopPropagation()
+  e.dataTransfer.dropEffect = "copy"
+  el.classList.add("drag-over")
+}
+function handleDragLeave(el, e) {
+  e.preventDefault()
+  e.stopPropagation()
+  el.classList.remove("drag-over")
+}
+function handleDropSplit(e) {
+  e.preventDefault()
+  e.stopPropagation()
+  splitCard.classList.remove("drag-over")
+  const files = e.dataTransfer.files
+  if (files.length === 0) return
+  const dt = new DataTransfer()
+  dt.items.add(files[0])
+  splitFileInput.files = dt.files
+  splitFileInput.dispatchEvent(new Event("change"))
+}
+function handleDropMerge(e) {
+  e.preventDefault()
+  e.stopPropagation()
+  mergeCard.classList.remove("drag-over")
+  const files = Array.from(e.dataTransfer.files || []).filter(f => f.type === "application/pdf" || f.name.endsWith(".pdf"))
+  if (files.length === 0) return
+  const dt = new DataTransfer()
+  files.forEach(f => dt.items.add(f))
+  mergeFilesInput.files = dt.files
+  mergeFilesInput.dispatchEvent(new Event("change"))
+}
+
+splitCard.addEventListener("dragover", (e) => handleDragOver(splitCard, e))
+splitCard.addEventListener("dragenter", (e) => handleDragOver(splitCard, e))
+splitCard.addEventListener("dragleave", (e) => handleDragLeave(splitCard, e))
+splitCard.addEventListener("drop", (e) => handleDropSplit(e))
+
+mergeCard.addEventListener("dragover", (e) => handleDragOver(mergeCard, e))
+mergeCard.addEventListener("dragenter", (e) => handleDragOver(mergeCard, e))
+mergeCard.addEventListener("dragleave", (e) => handleDragLeave(mergeCard, e))
+mergeCard.addEventListener("drop", (e) => handleDropMerge(e))
 splitFileInput.addEventListener("change", async (e) => {
   splitFileRef = e.target.files && e.target.files[0] ? e.target.files[0] : null
   setStatus(splitStatus, "")
