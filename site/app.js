@@ -344,9 +344,9 @@ fsNext.addEventListener("click", () => {
     if (document.activeElement === annoColor || document.activeElement === fsAnnoColor) return
     if (currentTool === "pointer") return
     e.preventDefault()
-    fsDrawLayer.setPointerCapture(e.pointerId)
-    startX = e.clientX; startY = e.clientY
+    e.stopPropagation()
     drawStarted = true
+    fsDrawLayer.setPointerCapture(e.pointerId)
     if (!annotations[activePreviewPage]) annotations[activePreviewPage] = []
     const r = fsDrawLayer.getBoundingClientRect()
     const sx = fsDrawLayer.width / 3
@@ -371,41 +371,41 @@ fsNext.addEventListener("click", () => {
     }
   })
   fsDrawLayer.addEventListener("pointermove", (e) => {
-    if (!drawStarted || currentTool === "pointer") return
+    if (!drawStarted || currentTool === "pointer" || currentTool === "eraser") return
+    if (!currentStroke) return
     const r = fsDrawLayer.getBoundingClientRect()
     const sx = fsDrawLayer.width / 3
     const p = { x: (e.clientX - r.left) / sx, y: (e.clientY - r.top) / sx }
-    if (currentTool === "eraser") {
-      const strokes = annotations[activePreviewPage]
-      if (strokes) {
-        for (let i = strokes.length - 1; i >= 0; i--) {
-          for (const pt of strokes[i].points) {
-            if (Math.hypot(pt.x - p.x, pt.y - p.y) < 20) {
-              strokes.splice(i, 1)
-              break
-            }
-          }
-        }
-      }
-      redrawFS(activePreviewPage)
-      syncThumbnailAnnotation(activePreviewPage)
-    } else if (currentStroke) {
-      currentStroke.points.push(p)
-      redrawFS(activePreviewPage)
-    }
+    currentStroke.points.push(p)
+    redrawFS(activePreviewPage)
   })
   fsDrawLayer.addEventListener("pointerup", (e) => {
+    if (!drawStarted) return
+    fsDrawLayer.releasePointerCapture(e.pointerId)
+    if (currentStroke && currentStroke.points.length <= 1) {
+      annotations[activePreviewPage].pop()
+      redrawFS(activePreviewPage)
+    }
+    syncThumbnailAnnotation(activePreviewPage)
+    currentStroke = null; drawStarted = false
+  })
+  fsDrawLayer.addEventListener("pointercancel", (e) => {
     fsDrawLayer.releasePointerCapture(e.pointerId)
     if (drawStarted && currentStroke && currentStroke.points.length <= 1) {
       annotations[activePreviewPage].pop()
       redrawFS(activePreviewPage)
     }
-    if (drawStarted) syncThumbnailAnnotation(activePreviewPage)
     currentStroke = null; drawStarted = false
   })
-  fsDrawLayer.addEventListener("pointerleave", () => {
-    if (drawStarted) syncThumbnailAnnotation(activePreviewPage)
-    currentStroke = null; drawStarted = false
+  window.addEventListener("pointerup", (e) => {
+    if (drawStarted && e.target !== fsDrawLayer) {
+      if (currentStroke && currentStroke.points.length <= 1) {
+        annotations[activePreviewPage].pop()
+        redrawFS(activePreviewPage)
+      }
+      syncThumbnailAnnotation(activePreviewPage)
+      currentStroke = null; drawStarted = false
+    }
   })
 }
 
@@ -870,9 +870,9 @@ closePreview.addEventListener("click", () => {
     if (document.activeElement === annoColor || document.activeElement === fsAnnoColor) return
     if (activePreviewPage === null || currentTool === "pointer") return
     e.preventDefault()
-    previewDrawLayer.setPointerCapture(e.pointerId)
-    startX = e.clientX; startY = e.clientY
+    e.stopPropagation()
     drawStarted = true
+    previewDrawLayer.setPointerCapture(e.pointerId)
     if (!annotations[activePreviewPage]) annotations[activePreviewPage] = []
     const r = previewDrawLayer.getBoundingClientRect()
     const p = { x: (e.clientX - r.left) / 3, y: (e.clientY - r.top) / 3 }
@@ -896,41 +896,40 @@ closePreview.addEventListener("click", () => {
     }
   })
   previewDrawLayer.addEventListener("pointermove", (e) => {
-    if (!drawStarted || currentTool === "pointer") return
-    if (activePreviewPage === null) return
+    if (!drawStarted || currentTool === "pointer" || currentTool === "eraser") return
+    if (activePreviewPage === null || !currentStroke) return
     const r = previewDrawLayer.getBoundingClientRect()
     const p = { x: (e.clientX - r.left) / 3, y: (e.clientY - r.top) / 3 }
-    if (currentTool === "eraser") {
-      const strokes = annotations[activePreviewPage]
-      if (strokes) {
-        const r2 = 18
-        for (let i = strokes.length - 1; i >= 0; i--) {
-          for (const pt of strokes[i].points) {
-            if (Math.hypot(pt.x - p.x, pt.y - p.y) < r2) {
-              strokes.splice(i, 1)
-              break
-            }
-          }
-        }
-      }
-      redrawPreview(activePreviewPage)
-    } else if (currentStroke) {
-      currentStroke.points.push(p)
-      redrawPreview(activePreviewPage)
-    }
+    currentStroke.points.push(p)
+    redrawPreview(activePreviewPage)
   })
   previewDrawLayer.addEventListener("pointerup", (e) => {
+    if (!drawStarted) return
+    previewDrawLayer.releasePointerCapture(e.pointerId)
+    if (currentStroke && currentStroke.points.length <= 1) {
+      annotations[activePreviewPage].pop()
+      redrawPreview(activePreviewPage)
+    }
+    syncThumbnailAnnotation(activePreviewPage)
+    currentStroke = null; drawStarted = false
+  })
+  previewDrawLayer.addEventListener("pointercancel", (e) => {
     previewDrawLayer.releasePointerCapture(e.pointerId)
     if (drawStarted && currentStroke && currentStroke.points.length <= 1) {
       annotations[activePreviewPage].pop()
       redrawPreview(activePreviewPage)
     }
-    if (drawStarted) syncThumbnailAnnotation(activePreviewPage)
     currentStroke = null; drawStarted = false
   })
-  previewDrawLayer.addEventListener("pointerleave", () => {
-    if (drawStarted) syncThumbnailAnnotation(activePreviewPage)
-    currentStroke = null; drawStarted = false
+  window.addEventListener("pointerup", (e) => {
+    if (drawStarted && e.target !== previewDrawLayer) {
+      if (currentStroke && currentStroke.points.length <= 1) {
+        annotations[activePreviewPage].pop()
+        redrawPreview(activePreviewPage)
+      }
+      syncThumbnailAnnotation(activePreviewPage)
+      currentStroke = null; drawStarted = false
+    }
   })
 }
 
