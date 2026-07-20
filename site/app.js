@@ -870,6 +870,13 @@ function doErase(pageIdx, p, redrawFn) {
       annotations[activePreviewPage].push(currentStroke)
     }
   })
+  document.addEventListener("pointermove", (e) => {
+    if (!drawing || currentTool === "pointer" || currentTool === "eraser" || !currentStroke) return
+    const r = previewDrawLayer.getBoundingClientRect()
+    const p = { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }
+    currentStroke.points.push(p)
+    redrawPreview(activePreviewPage)
+  })
   document.addEventListener("pointerup", () => {
     if (!drawing) return
     drawing = false
