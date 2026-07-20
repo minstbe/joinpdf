@@ -341,6 +341,7 @@ fsNext.addEventListener("click", () => {
 
 { let startX, startY, drawStarted
   fsDrawLayer.addEventListener("pointerdown", (e) => {
+    if (document.activeElement === annoColor || document.activeElement === fsAnnoColor) return
     if (currentTool === "pointer") return
     e.preventDefault()
     fsDrawLayer.setPointerCapture(e.pointerId)
@@ -866,6 +867,7 @@ closePreview.addEventListener("click", () => {
 
 { let startX, startY, drawStarted
   previewDrawLayer.addEventListener("pointerdown", (e) => {
+    if (document.activeElement === annoColor || document.activeElement === fsAnnoColor) return
     if (activePreviewPage === null || currentTool === "pointer") return
     e.preventDefault()
     previewDrawLayer.setPointerCapture(e.pointerId)
