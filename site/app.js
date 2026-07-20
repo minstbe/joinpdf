@@ -671,6 +671,10 @@ function renderSelectedStrip() {
       if (e.target.closest(".remove-sel")) return
       openPreview(pageIdx, i)
     })
+    thumb.addEventListener("dblclick", (e) => {
+      e.preventDefault()
+      openFullscreen(pageIdx, i)
+    })
     selectedStrip.appendChild(thumb)
   }
 }
