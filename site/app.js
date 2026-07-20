@@ -32,6 +32,15 @@ const clearMerge = document.getElementById("clearMerge")
 const thumbnailGrid = document.getElementById("thumbnailGrid")
 const selectedArea = document.getElementById("selectedArea")
 const selectedStrip = document.getElementById("selectedStrip")
+const previewArea = document.getElementById("previewArea")
+const previewCanvas = document.getElementById("previewCanvas")
+const previewDrawLayer = document.getElementById("previewDrawLayer")
+const previewLabel = document.getElementById("previewLabel")
+const closePreview = document.getElementById("closePreview")
+const annoToolbar = document.getElementById("annoToolbar")
+const annoColor = document.getElementById("annoColor")
+const clearPageAnno = document.getElementById("clearPageAnno")
+const clearAllAnno = document.getElementById("clearAllAnno")
 let splitFileRef = null
 let mergeItems = []
 let draggingIndex = null
@@ -182,34 +191,23 @@ async function renderThumbnails(file) {
     for (let i = 1; i <= total; i++) {
       const page = await pdf.getPage(i)
       const vp = page.getViewport({ scale })
-      const wrap = document.createElement("div")
-      wrap.style.position = "relative"
-      wrap.style.display = "inline-block"
       const canvas = document.createElement("canvas")
       canvas.width = vp.width
       canvas.height = vp.height
       canvas.className = "thumb-canvas"
       await page.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise
-      const drawCanvas = document.createElement("canvas")
-      drawCanvas.className = "draw-layer"
-      drawCanvas.width = vp.width
-      drawCanvas.height = vp.height
-      drawCanvas.style.width = canvas.style.width || (vp.width + "px")
-      drawCanvas.style.height = canvas.style.height || (vp.height + "px")
-      drawCanvas.style.position = "absolute"
-      drawCanvas.style.top = "0"
-      drawCanvas.style.left = "0"
-      wrap.appendChild(canvas)
-      wrap.appendChild(drawCanvas)
       const item = document.createElement("div")
       item.className = "thumb-item"
       item.dataset.page = String(i - 1)
-      item.addEventListener("click", (e) => togglePage(i - 1, e.shiftKey))
-      attachDrawEvents(drawCanvas, i - 1, item)
+      item.addEventListener("click", (e) => {
+        if (e.target.closest(".remove-sel")) return
+        togglePage(i - 1, e.shiftKey)
+        openPreview(i - 1)
+      })
       const label = document.createElement("div")
       label.className = "thumb-label"
       label.textContent = String(i)
-      item.appendChild(wrap)
+      item.appendChild(canvas)
       item.appendChild(label)
       thumbnailGrid.appendChild(item)
     }
@@ -522,6 +520,9 @@ clearSplit.addEventListener("click", (e) => {
   selectedIndices = []
   splitPages = []
   annotations = {}
+  previewPdfDoc = null
+  activePreviewPage = null
+  previewArea.classList.add("hidden")
   clearSplit.classList.add("hidden")
   setStatus(splitStatus, "")
   if (mergeItems.length === 0) resetCards()
@@ -545,22 +546,110 @@ document.querySelectorAll(".tool-btn[data-tool]").forEach(btn => {
 })
 annoColor.addEventListener("input", () => {})
 clearPageAnno.addEventListener("click", () => {
-  const idx = getLastTouchedPage()
-  if (idx !== null) {
-    delete annotations[idx]
-    redrawPage(idx)
+  if (activePreviewPage !== null) {
+    delete annotations[activePreviewPage]
+    redrawPreview(activePreviewPage)
   }
 })
 clearAllAnno.addEventListener("click", () => {
   annotations = {}
-  for (const el of thumbnailGrid.querySelectorAll(".thumb-item")) {
-    const drawCanvas = el.querySelector(".draw-layer")
-    if (drawCanvas) drawCanvas.getContext("2d").clearRect(0, 0, drawCanvas.width, drawCanvas.height)
-  }
+  if (activePreviewPage !== null) redrawPreview(activePreviewPage)
 })
 function getLastTouchedPage() {
-  for (const el of thumbnailGrid.querySelectorAll(".thumb-item:hover")) return parseInt(el.dataset.page, 10)
-  return drawingPageIdx
+  return activePreviewPage
+}
+
+let previewPdfDoc = null
+async function openPreview(pageIdx) {
+  activePreviewPage = pageIdx
+  previewArea.classList.remove("hidden")
+  previewLabel.textContent = "Page " + (pageIdx + 1)
+  if (!splitFileRef) return
+  try {
+    if (!previewPdfDoc) {
+      const buffer = await splitFileRef.arrayBuffer()
+      previewPdfDoc = await pdfjsLib.getDocument({ data: buffer }).promise
+    }
+    const page = await previewPdfDoc.getPage(pageIdx + 1)
+    const scale = 1.2
+    const vp = page.getViewport({ scale })
+    previewCanvas.width = vp.width
+    previewCanvas.height = vp.height
+    previewDrawLayer.width = vp.width
+    previewDrawLayer.height = vp.height
+    await page.render({ canvasContext: previewCanvas.getContext("2d"), viewport: vp }).promise
+    redrawPreview(pageIdx)
+  } catch (e) {}
+}
+function redrawPreview(pageIdx) {
+  const ctx = previewDrawLayer.getContext("2d")
+  ctx.clearRect(0, 0, previewDrawLayer.width, previewDrawLayer.height)
+  const strokes = annotations[pageIdx] || []
+  const sx = previewDrawLayer.width / (previewDrawLayer.width > 0 ? previewDrawLayer.width : 1)
+  for (const s of strokes) {
+    ctx.strokeStyle = s.color
+    ctx.globalAlpha = s.type === "highlighter" ? 0.45 : 1
+    ctx.lineWidth = s.width * 3
+    ctx.lineCap = "round"
+    ctx.lineJoin = "round"
+    if (s.points.length >= 2) {
+      ctx.beginPath()
+      ctx.moveTo(s.points[0].x * 3, s.points[0].y * 3)
+      for (let i = 1; i < s.points.length; i++) ctx.lineTo(s.points[i].x * 3, s.points[i].y * 3)
+      ctx.stroke()
+    }
+  }
+  ctx.globalAlpha = 1
+}
+closePreview.addEventListener("click", () => {
+  previewArea.classList.add("hidden")
+  previewPdfDoc = null
+  activePreviewPage = null
+})
+
+{ let startX, startY, drawStarted
+  previewDrawLayer.addEventListener("pointerdown", (e) => {
+    if (activePreviewPage === null) return
+    startX = e.clientX; startY = e.clientY
+    drawStarted = false
+    if (!annotations[activePreviewPage]) annotations[activePreviewPage] = []
+  })
+  previewDrawLayer.addEventListener("pointermove", (e) => {
+    if (activePreviewPage === null) return
+    if (Math.hypot(e.clientX - startX, e.clientY - startY) < 4) return
+    const r = previewDrawLayer.getBoundingClientRect()
+    const p = { x: (e.clientX - r.left) / 3, y: (e.clientY - r.top) / 3 }
+    if (!drawStarted) {
+      drawStarted = true
+      currentStroke = { type: currentTool, color: currentTool === "highlighter" ? "#ffeb3b" : annoColor.value, points: [p], width: currentTool === "highlighter" ? 18 : 2 }
+      annotations[activePreviewPage].push(currentStroke)
+    }
+    if (currentTool === "eraser") {
+      const strokes = annotations[activePreviewPage]
+      if (strokes) {
+        const r2 = 18
+        for (let i = strokes.length - 1; i >= 0; i--) {
+          for (const pt of strokes[i].points) {
+            if (Math.hypot(pt.x - p.x, pt.y - p.y) < r2) {
+              strokes.splice(i, 1)
+              break
+            }
+          }
+        }
+      }
+    } else if (currentStroke) {
+      currentStroke.points.push(p)
+    }
+    redrawPreview(activePreviewPage)
+  })
+  previewDrawLayer.addEventListener("pointerup", () => {
+    if (drawStarted && currentStroke && currentStroke.points.length <= 1) {
+      annotations[activePreviewPage].pop()
+      redrawPreview(activePreviewPage)
+    }
+    currentStroke = null; drawStarted = false
+  })
+  previewDrawLayer.addEventListener("pointerleave", () => { currentStroke = null; drawStarted = false })
 }
 
 function handleDragOver(el, e) {

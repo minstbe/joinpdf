@@ -74,8 +74,18 @@
           <button class="tool-btn" data-tool="eraser" title="Eraser">⌫</button>
           <input type="color" id="annoColor" value="#ff1a1a" title="Color" class="anno-color">
           <span class="toolbar-sep"></span>
-          <button class="tool-btn" id="clearPageAnno" title="Clear marks on hovered page">Clear Page</button>
+          <button class="tool-btn" id="clearPageAnno" title="Clear marks on current page">Clear Page</button>
           <button class="tool-btn" id="clearAllAnno" title="Remove all marks">Clear All</button>
+        </div>
+        <div class="preview-area hidden" id="previewArea">
+          <div class="preview-header">
+            <span id="previewLabel">Page 1</span>
+            <button class="tool-btn" id="closePreview" title="Close preview">×</button>
+          </div>
+          <div class="preview-canvas-wrap" id="previewCanvasWrap">
+            <canvas id="previewCanvas"></canvas>
+            <canvas id="previewDrawLayer" class="draw-layer"></canvas>
+          </div>
         </div>
         <div class="grid-header">All pages — click to select <span class="hint">(shift+click for range)</span></div>
         <div class="thumbnail-grid" id="thumbnailGrid"></div>
