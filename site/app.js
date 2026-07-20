@@ -524,7 +524,8 @@ function redrawPage(pageIdx) {
 
 function flattenAnnotations(pdfPage, pageIdx) {
   const strokes = annotations[pageIdx]
-  if (!strokes || strokes.length === 0) return
+  if (!strokes || strokes.length === 0) { console.log("flatten: no strokes for page", pageIdx); return }
+  console.log("flatten: page", pageIdx, strokes.length, "strokes")
   const w = pdfPage.getWidth()
   const h = pdfPage.getHeight()
   for (const s of strokes) {
@@ -787,6 +788,8 @@ async function openPreview(pageIdx, pos) {
     previewCanvas.height = vp.height
     previewDrawLayer.width = vp.width
     previewDrawLayer.height = vp.height
+    previewDrawLayer.style.width = vp.width + "px"
+    previewDrawLayer.style.height = vp.height + "px"
     await page.render({ canvasContext: previewCanvas.getContext("2d"), viewport: vp }).promise
     redrawPreview(pageIdx)
   } catch (e) {}
@@ -862,18 +865,11 @@ function doErase(pageIdx, p, redrawFn) {
     const r = previewDrawLayer.getBoundingClientRect()
     const p = { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }
     if (currentTool === "eraser") {
-      doErase(activePreviewPage, p, (i) => { redrawPreview(i) })
+      doErase(activePreviewPage, p, (i) => { redrawPreview(i); syncThumbnailAnnotation(i) })
     } else {
       currentStroke = { type: currentTool, color: currentTool === "highlighter" ? "#ffeb3b" : annoColor.value, points: [p], width: currentTool === "highlighter" ? 18 : 2 }
       annotations[activePreviewPage].push(currentStroke)
     }
-  })
-  document.addEventListener("pointermove", (e) => {
-    if (!drawing || currentTool === "pointer" || currentTool === "eraser" || !currentStroke) return
-    const r = previewDrawLayer.getBoundingClientRect()
-    const p = { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }
-    currentStroke.points.push(p)
-    redrawPreview(activePreviewPage)
   })
   document.addEventListener("pointerup", () => {
     if (!drawing) return
