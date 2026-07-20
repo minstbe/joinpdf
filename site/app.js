@@ -339,73 +339,52 @@ fsNext.addEventListener("click", () => {
   if (previewPosInSelection < selectedIndices.length - 1) openFullscreen(selectedIndices[previewPosInSelection + 1], previewPosInSelection + 1)
 })
 
-{ let startX, startY, drawStarted
+{ let drawing = false
   fsDrawLayer.addEventListener("pointerdown", (e) => {
     if (document.activeElement === annoColor || document.activeElement === fsAnnoColor) return
     if (currentTool === "pointer") return
-    e.preventDefault()
-    e.stopPropagation()
-    drawStarted = true
+    e.preventDefault(); e.stopPropagation()
+    drawing = true
     fsDrawLayer.setPointerCapture(e.pointerId)
     if (!annotations[activePreviewPage]) annotations[activePreviewPage] = []
     const r = fsDrawLayer.getBoundingClientRect()
     const sx = fsDrawLayer.width / 3
     const p = { x: (e.clientX - r.left) / sx, y: (e.clientY - r.top) / sx }
     if (currentTool === "eraser") {
-      const strokes = annotations[activePreviewPage]
-      if (strokes) {
-        for (let i = strokes.length - 1; i >= 0; i--) {
-          for (const pt of strokes[i].points) {
-            if (Math.hypot(pt.x - p.x, pt.y - p.y) < 20) {
-              strokes.splice(i, 1)
-              break
-            }
-          }
-        }
-      }
-      redrawFS(activePreviewPage)
-      syncThumbnailAnnotation(activePreviewPage)
+      doErase(activePreviewPage, p, (i) => { redrawFS(i); syncThumbnailAnnotation(i) })
     } else {
       currentStroke = { type: currentTool, color: currentTool === "highlighter" ? "#ffeb3b" : fsAnnoColor.value, points: [p], width: currentTool === "highlighter" ? 18 : 2 }
       annotations[activePreviewPage].push(currentStroke)
     }
   })
-  fsDrawLayer.addEventListener("pointermove", (e) => {
-    if (!drawStarted || currentTool === "pointer" || currentTool === "eraser") return
-    if (!currentStroke) return
+  document.addEventListener("pointermove", (e) => {
+    if (!drawing || currentTool === "pointer" || currentTool === "eraser" || !currentStroke) return
     const r = fsDrawLayer.getBoundingClientRect()
     const sx = fsDrawLayer.width / 3
     const p = { x: (e.clientX - r.left) / sx, y: (e.clientY - r.top) / sx }
     currentStroke.points.push(p)
     redrawFS(activePreviewPage)
   })
-  fsDrawLayer.addEventListener("pointerup", (e) => {
-    if (!drawStarted) return
-    fsDrawLayer.releasePointerCapture(e.pointerId)
+  document.addEventListener("pointerup", () => {
+    if (!drawing) return
+    drawing = false
+    try { fsDrawLayer.releasePointerCapture(1) } catch (_) {}
     if (currentStroke && currentStroke.points.length <= 1) {
       annotations[activePreviewPage].pop()
       redrawFS(activePreviewPage)
     }
     syncThumbnailAnnotation(activePreviewPage)
-    currentStroke = null; drawStarted = false
+    currentStroke = null
   })
-  fsDrawLayer.addEventListener("pointercancel", (e) => {
-    fsDrawLayer.releasePointerCapture(e.pointerId)
-    if (drawStarted && currentStroke && currentStroke.points.length <= 1) {
+  document.addEventListener("pointercancel", () => {
+    if (!drawing) return
+    drawing = false
+    try { fsDrawLayer.releasePointerCapture(1) } catch (_) {}
+    if (currentStroke && currentStroke.points.length <= 1) {
       annotations[activePreviewPage].pop()
       redrawFS(activePreviewPage)
     }
-    currentStroke = null; drawStarted = false
-  })
-  window.addEventListener("pointerup", (e) => {
-    if (drawStarted && e.target !== fsDrawLayer) {
-      if (currentStroke && currentStroke.points.length <= 1) {
-        annotations[activePreviewPage].pop()
-        redrawFS(activePreviewPage)
-      }
-      syncThumbnailAnnotation(activePreviewPage)
-      currentStroke = null; drawStarted = false
-    }
+    currentStroke = null
   })
 }
 
@@ -865,71 +844,65 @@ closePreview.addEventListener("click", () => {
   activePreviewPage = null
 })
 
-{ let startX, startY, drawStarted
+function doErase(pageIdx, p, redrawFn) {
+  const strokes = annotations[pageIdx]
+  if (!strokes) return
+  for (let i = strokes.length - 1; i >= 0; i--) {
+    for (const pt of strokes[i].points) {
+      if (Math.hypot(pt.x - p.x, pt.y - p.y) < 18) {
+        strokes.splice(i, 1)
+        redrawFn(pageIdx)
+        return
+      }
+    }
+  }
+}
+
+{ 
+  let drawing = false
   previewDrawLayer.addEventListener("pointerdown", (e) => {
     if (document.activeElement === annoColor || document.activeElement === fsAnnoColor) return
     if (activePreviewPage === null || currentTool === "pointer") return
-    e.preventDefault()
-    e.stopPropagation()
-    drawStarted = true
+    e.preventDefault(); e.stopPropagation()
+    drawing = true
     previewDrawLayer.setPointerCapture(e.pointerId)
     if (!annotations[activePreviewPage]) annotations[activePreviewPage] = []
     const r = previewDrawLayer.getBoundingClientRect()
     const p = { x: (e.clientX - r.left) / 3, y: (e.clientY - r.top) / 3 }
     if (currentTool === "eraser") {
-      const strokes = annotations[activePreviewPage]
-      if (strokes) {
-        const r2 = 18
-        for (let i = strokes.length - 1; i >= 0; i--) {
-          for (const pt of strokes[i].points) {
-            if (Math.hypot(pt.x - p.x, pt.y - p.y) < r2) {
-              strokes.splice(i, 1)
-              break
-            }
-          }
-        }
-      }
-      redrawPreview(activePreviewPage)
+      doErase(activePreviewPage, p, redrawPreview)
     } else {
       currentStroke = { type: currentTool, color: currentTool === "highlighter" ? "#ffeb3b" : annoColor.value, points: [p], width: currentTool === "highlighter" ? 18 : 2 }
       annotations[activePreviewPage].push(currentStroke)
     }
   })
-  previewDrawLayer.addEventListener("pointermove", (e) => {
-    if (!drawStarted || currentTool === "pointer" || currentTool === "eraser") return
-    if (activePreviewPage === null || !currentStroke) return
+  document.addEventListener("pointermove", (e) => {
+    if (!drawing || currentTool === "pointer" || currentTool === "eraser" || !currentStroke) return
     const r = previewDrawLayer.getBoundingClientRect()
     const p = { x: (e.clientX - r.left) / 3, y: (e.clientY - r.top) / 3 }
     currentStroke.points.push(p)
     redrawPreview(activePreviewPage)
   })
-  previewDrawLayer.addEventListener("pointerup", (e) => {
-    if (!drawStarted) return
-    previewDrawLayer.releasePointerCapture(e.pointerId)
+  document.addEventListener("pointerup", () => {
+    if (!drawing) return
+    drawing = false
+    try { previewDrawLayer.releasePointerCapture(1) } catch (_) {}
     if (currentStroke && currentStroke.points.length <= 1) {
       annotations[activePreviewPage].pop()
       redrawPreview(activePreviewPage)
     }
     syncThumbnailAnnotation(activePreviewPage)
-    currentStroke = null; drawStarted = false
+    currentStroke = null
   })
-  previewDrawLayer.addEventListener("pointercancel", (e) => {
-    previewDrawLayer.releasePointerCapture(e.pointerId)
-    if (drawStarted && currentStroke && currentStroke.points.length <= 1) {
+  document.addEventListener("pointercancel", () => {
+    if (!drawing) return
+    drawing = false
+    try { previewDrawLayer.releasePointerCapture(1) } catch (_) {}
+    if (currentStroke && currentStroke.points.length <= 1) {
       annotations[activePreviewPage].pop()
       redrawPreview(activePreviewPage)
     }
-    currentStroke = null; drawStarted = false
-  })
-  window.addEventListener("pointerup", (e) => {
-    if (drawStarted && e.target !== previewDrawLayer) {
-      if (currentStroke && currentStroke.points.length <= 1) {
-        annotations[activePreviewPage].pop()
-        redrawPreview(activePreviewPage)
-      }
-      syncThumbnailAnnotation(activePreviewPage)
-      currentStroke = null; drawStarted = false
-    }
+    currentStroke = null
   })
 }
 
