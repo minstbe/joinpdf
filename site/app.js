@@ -219,26 +219,27 @@ async function renderThumbnails(file) {
 function syncThumbnailAnnotation(pageIdx) {
   const item = thumbnailGrid.querySelector(`.thumb-item[data-page="${pageIdx}"]`)
   if (!item) return
+  const thumbCanvas = item.querySelector("canvas.thumb-canvas, canvas")
+  if (!thumbCanvas) return
   let dl = item.querySelector(".anno-overlay")
   if (!dl) {
     dl = document.createElement("canvas")
     dl.className = "anno-overlay"
-    const thumbCanvas = item.querySelector("canvas")
-    if (thumbCanvas) {
-      dl.width = thumbCanvas.width
-      dl.height = thumbCanvas.height
-      dl.style.position = "absolute"
-      dl.style.top = "0"
-      dl.style.left = "0"
-      dl.style.pointerEvents = "none"
-      item.style.position = "relative"
-      item.insertBefore(dl, item.firstChild)
+    dl.width = thumbCanvas.width
+    dl.height = thumbCanvas.height
+    dl.style.cssText = "position:absolute;top:0;left:0;width:" + thumbCanvas.width + "px;height:" + thumbCanvas.height + "px;pointer-events:none;"
+    item.style.position = "relative"
+    const label = item.querySelector(".thumb-label")
+    if (label) {
+      item.insertBefore(dl, label)
+    } else {
+      item.appendChild(dl)
     }
   }
   const ctx = dl.getContext("2d")
   ctx.clearRect(0, 0, dl.width, dl.height)
   const strokes = annotations[pageIdx] || []
-  const sx = dl.width / (previewDrawLayer.width > 0 ? previewDrawLayer.width / 3 : 1)
+  const scale = dl.width / 3
   for (const s of strokes) {
     ctx.strokeStyle = s.color
     ctx.globalAlpha = s.type === "highlighter" ? 0.45 : 1
@@ -342,6 +343,7 @@ fsNext.addEventListener("click", () => {
   fsDrawLayer.addEventListener("pointerdown", (e) => {
     if (currentTool === "pointer") return
     e.preventDefault()
+    fsDrawLayer.setPointerCapture(e.pointerId)
     startX = e.clientX; startY = e.clientY
     drawStarted = true
     if (!annotations[activePreviewPage]) annotations[activePreviewPage] = []
@@ -391,7 +393,8 @@ fsNext.addEventListener("click", () => {
       redrawFS(activePreviewPage)
     }
   })
-  fsDrawLayer.addEventListener("pointerup", () => {
+  fsDrawLayer.addEventListener("pointerup", (e) => {
+    fsDrawLayer.releasePointerCapture(e.pointerId)
     if (drawStarted && currentStroke && currentStroke.points.length <= 1) {
       annotations[activePreviewPage].pop()
       redrawFS(activePreviewPage)
@@ -865,6 +868,7 @@ closePreview.addEventListener("click", () => {
   previewDrawLayer.addEventListener("pointerdown", (e) => {
     if (activePreviewPage === null || currentTool === "pointer") return
     e.preventDefault()
+    previewDrawLayer.setPointerCapture(e.pointerId)
     startX = e.clientX; startY = e.clientY
     drawStarted = true
     if (!annotations[activePreviewPage]) annotations[activePreviewPage] = []
@@ -913,7 +917,8 @@ closePreview.addEventListener("click", () => {
       redrawPreview(activePreviewPage)
     }
   })
-  previewDrawLayer.addEventListener("pointerup", () => {
+  previewDrawLayer.addEventListener("pointerup", (e) => {
+    previewDrawLayer.releasePointerCapture(e.pointerId)
     if (drawStarted && currentStroke && currentStroke.points.length <= 1) {
       annotations[activePreviewPage].pop()
       redrawPreview(activePreviewPage)
