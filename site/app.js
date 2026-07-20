@@ -214,7 +214,20 @@ async function renderThumbnails(file) {
       item.addEventListener("click", (e) => {
         if (e.target.closest(".remove-sel")) return
         togglePage(i - 1, e.shiftKey)
-})
+      })
+      const label = document.createElement("div")
+      label.className = "thumb-label"
+      label.textContent = String(i)
+      item.appendChild(canvas)
+      item.appendChild(label)
+      thumbnailGrid.appendChild(item)
+    }
+    updatePageSpec()
+  } catch (e) {
+    thumbnailGrid.innerHTML = "<div style='text-align:center;padding:20px;color:var(--muted)'>Failed to load preview. You can still type page numbers below.</div>"
+    splitPreview.classList.remove("hidden")
+  }
+}
 
 function syncThumbnailAnnotation(pageIdx) {
   const item = thumbnailGrid.querySelector(`.thumb-item[data-page="${pageIdx}"]`)
@@ -524,8 +537,7 @@ function redrawPage(pageIdx) {
 
 function flattenAnnotations(pdfPage, pageIdx) {
   const strokes = annotations[pageIdx]
-  if (!strokes || strokes.length === 0) { console.log("flatten: no strokes for page", pageIdx); return }
-  console.log("flatten: page", pageIdx, strokes.length, "strokes")
+  if (!strokes || strokes.length === 0) return
   const w = pdfPage.getWidth()
   const h = pdfPage.getHeight()
   for (const s of strokes) {
