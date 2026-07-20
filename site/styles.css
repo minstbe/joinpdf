@@ -592,3 +592,57 @@ textarea:focus {
   .thumb-canvas { width: 80px; }
   .sel-canvas { width: 60px; }
 }
+.annotation-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 0;
+  flex-wrap: wrap;
+}
+.toolbar-label {
+  font-size: 13px;
+  color: var(--muted);
+  margin-right: 4px;
+}
+.toolbar-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  margin: 0 4px;
+}
+.tool-btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 14px;
+  cursor: pointer;
+  background: var(--surface);
+  color: var(--text);
+  transition: border-color .15s, background .15s;
+}
+.tool-btn:hover { border-color: var(--accent); }
+.tool-btn.active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+.anno-color {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 2px;
+  background: var(--surface);
+}
+.draw-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  cursor: crosshair;
+  pointer-events: none;
+}
+.thumb-item.drawing .draw-layer {
+  pointer-events: auto;
+}

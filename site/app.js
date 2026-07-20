@@ -38,6 +38,11 @@ let draggingIndex = null
 let splitPages = []
 let selectedIndices = []
 let selDragIdx = null
+let annotations = {}
+let currentTool = "pen"
+let isDrawing = false
+let currentStroke = null
+let drawingPageIdx = null
 const API_BASE = (location.hostname === "localhost" || location.hostname === "127.0.0.1")
   ? (location.port === "5600" ? "" : "http://localhost:5600")
   : ""
@@ -170,24 +175,41 @@ async function renderThumbnails(file) {
     const pdf = await pdfjsLib.getDocument({ data: buffer }).promise
     const total = pdf.numPages
     splitPages = Array.from({ length: total }, (_, i) => i)
+    annotations = {}
+    annoToolbar.classList.remove("hidden")
     thumbnailGrid.innerHTML = ""
     const scale = 0.4
     for (let i = 1; i <= total; i++) {
       const page = await pdf.getPage(i)
       const vp = page.getViewport({ scale })
+      const wrap = document.createElement("div")
+      wrap.style.position = "relative"
+      wrap.style.display = "inline-block"
       const canvas = document.createElement("canvas")
       canvas.width = vp.width
       canvas.height = vp.height
       canvas.className = "thumb-canvas"
       await page.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise
+      const drawCanvas = document.createElement("canvas")
+      drawCanvas.className = "draw-layer"
+      drawCanvas.width = vp.width
+      drawCanvas.height = vp.height
+      drawCanvas.style.width = canvas.style.width || (vp.width + "px")
+      drawCanvas.style.height = canvas.style.height || (vp.height + "px")
+      drawCanvas.style.position = "absolute"
+      drawCanvas.style.top = "0"
+      drawCanvas.style.left = "0"
+      wrap.appendChild(canvas)
+      wrap.appendChild(drawCanvas)
       const item = document.createElement("div")
       item.className = "thumb-item"
       item.dataset.page = String(i - 1)
       item.addEventListener("click", (e) => togglePage(i - 1, e.shiftKey))
+      attachDrawEvents(drawCanvas, i - 1, item)
       const label = document.createElement("div")
       label.className = "thumb-label"
       label.textContent = String(i)
-      item.appendChild(canvas)
+      item.appendChild(wrap)
       item.appendChild(label)
       thumbnailGrid.appendChild(item)
     }
@@ -196,6 +218,130 @@ async function renderThumbnails(file) {
     thumbnailGrid.innerHTML = "<div style='text-align:center;padding:20px;color:var(--muted)'>Failed to load preview. You can still type page numbers below.</div>"
     splitPreview.classList.remove("hidden")
   }
+}
+
+function attachDrawEvents(canvas, pageIdx, item) {
+  const getPos = (e) => {
+    const r = canvas.getBoundingClientRect()
+    return { x: (e.clientX - r.left) * (canvas.width / r.width), y: (e.clientY - r.top) * (canvas.height / r.height) }
+  }
+  canvas.addEventListener("pointerdown", (e) => {
+    e.preventDefault()
+    canvas.setPointerCapture(e.pointerId)
+    isDrawing = true
+    drawingPageIdx = pageIdx
+    const p = getPos(e)
+    if (!annotations[pageIdx]) annotations[pageIdx] = []
+    currentStroke = { type: currentTool, color: currentTool === "highlighter" ? "#ffeb3b" : annoColor.value, points: [p], width: currentTool === "highlighter" ? 18 : 2 }
+    annotations[pageIdx].push(currentStroke)
+    redrawPage(pageIdx)
+  })
+  canvas.addEventListener("pointermove", (e) => {
+    if (!isDrawing || drawingPageIdx !== pageIdx) return
+    const p = getPos(e)
+    if (currentTool === "eraser") {
+      checkErase(pageIdx, p)
+    } else {
+      currentStroke.points.push(p)
+    }
+    redrawPage(pageIdx)
+  })
+  canvas.addEventListener("pointerup", () => {
+    isDrawing = false
+    currentStroke = null
+    drawingPageIdx = null
+  })
+  canvas.addEventListener("pointerleave", () => {
+    isDrawing = false
+    currentStroke = null
+    drawingPageIdx = null
+  })
+}
+
+function checkErase(pageIdx, p) {
+  const strokes = annotations[pageIdx]
+  if (!strokes) return
+  const r = 12
+  for (let i = strokes.length - 1; i >= 0; i--) {
+    for (const pt of strokes[i].points) {
+      if (Math.hypot(pt.x - p.x, pt.y - p.y) < r) {
+        strokes.splice(i, 1)
+        return
+      }
+    }
+  }
+}
+
+function redrawPage(pageIdx) {
+  const item = thumbnailGrid.querySelector(`.thumb-item[data-page="${pageIdx}"]`)
+  if (!item) return
+  const drawCanvas = item.querySelector(".draw-layer")
+  if (!drawCanvas) return
+  const ctx = drawCanvas.getContext("2d")
+  ctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height)
+  const strokes = annotations[pageIdx] || []
+  for (const s of strokes) {
+    if (s.type === "highlighter") {
+      ctx.strokeStyle = s.color
+      ctx.globalAlpha = 0.45
+      ctx.lineWidth = s.width
+      ctx.lineCap = "round"
+      ctx.lineJoin = "round"
+    } else {
+      ctx.strokeStyle = s.color
+      ctx.globalAlpha = 1
+      ctx.lineWidth = s.width
+      ctx.lineCap = "round"
+      ctx.lineJoin = "round"
+    }
+    if (s.points.length < 2) {
+      ctx.beginPath()
+      ctx.arc(s.points[0].x, s.points[0].y, s.width / 2, 0, Math.PI * 2)
+      ctx.fillStyle = ctx.strokeStyle
+      ctx.fill()
+      continue
+    }
+    ctx.beginPath()
+    ctx.moveTo(s.points[0].x, s.points[0].y)
+    for (let i = 1; i < s.points.length; i++) ctx.lineTo(s.points[i].x, s.points[i].y)
+    ctx.stroke()
+  }
+  ctx.globalAlpha = 1
+}
+
+function flattenAnnotations(pdfPage, pageIdx) {
+  const strokes = annotations[pageIdx]
+  if (!strokes || strokes.length === 0) return
+  const scale = 0.4
+  const pageW = pdfPage.getWidth()
+  const pageH = pdfPage.getHeight()
+  const thumbW = pageW * scale
+  const thumbH = pageH * scale
+  const sx = pageW / thumbW
+  const sy = pageH / thumbH
+  for (const s of strokes) {
+    if (s.points.length < 2) continue
+    const color = s.type === "highlighter" ? PDFLib.rgb(1, 0.92, 0.23) : hexToRgb(s.color)
+    const pathData = pointsToSvgPath(s.points, sx, sy)
+    pdfPage.drawSvgPath(pathData, {
+      borderColor: color,
+      borderWidth: s.width * sx,
+      opacity: s.type === "highlighter" ? 0.45 : 1,
+    })
+  }
+}
+
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1, 3), 16) / 255
+  const g = parseInt(hex.slice(3, 5), 16) / 255
+  const b = parseInt(hex.slice(5, 7), 16) / 255
+  return PDFLib.rgb(r, g, b)
+}
+
+function pointsToSvgPath(points, sx, sy) {
+  let d = `M ${points[0].x * sx} ${points[0].y * sy}`
+  for (let i = 1; i < points.length; i++) d += ` L ${points[i].x * sx} ${points[i].y * sy}`
+  return d
 }
 
 function togglePage(idx, shift) {
@@ -357,8 +503,10 @@ clearSplit.addEventListener("click", (e) => {
   splitFileInput.value = ""
   splitFileRef = null
   splitPreview.classList.add("hidden")
+  annoToolbar.classList.add("hidden")
   selectedIndices = []
   splitPages = []
+  annotations = {}
   clearSplit.classList.add("hidden")
   setStatus(splitStatus, "")
   if (mergeItems.length === 0) resetCards()
@@ -372,6 +520,33 @@ clearMerge.addEventListener("click", (e) => {
   setStatus(mergeStatus, "")
   if (!splitFileRef) resetCards()
 })
+
+document.querySelectorAll(".tool-btn[data-tool]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tool-btn[data-tool]").forEach(b => b.classList.remove("active"))
+    btn.classList.add("active")
+    currentTool = btn.dataset.tool
+  })
+})
+annoColor.addEventListener("input", () => {})
+clearPageAnno.addEventListener("click", () => {
+  const idx = getLastTouchedPage()
+  if (idx !== null) {
+    delete annotations[idx]
+    redrawPage(idx)
+  }
+})
+clearAllAnno.addEventListener("click", () => {
+  annotations = {}
+  for (const el of thumbnailGrid.querySelectorAll(".thumb-item")) {
+    const drawCanvas = el.querySelector(".draw-layer")
+    if (drawCanvas) drawCanvas.getContext("2d").clearRect(0, 0, drawCanvas.width, drawCanvas.height)
+  }
+})
+function getLastTouchedPage() {
+  for (const el of thumbnailGrid.querySelectorAll(".thumb-item:hover")) return parseInt(el.dataset.page, 10)
+  return drawingPageIdx
+}
 
 function handleDragOver(el, e) {
   e.preventDefault()
@@ -462,7 +637,11 @@ splitBtn.addEventListener("click", async () => {
     }
     const out = await PDFLib.PDFDocument.create()
     const pages = await out.copyPages(src, indices)
-    for (const p of pages) out.addPage(p)
+    for (let i = 0; i < pages.length; i++) {
+      const p = pages[i]
+      flattenAnnotations(p, indices[i])
+      out.addPage(p)
+    }
     const bytes = await out.save()
     const base = splitFileRef.name.replace(/\.pdf$/i, "")
     const custom = ensurePdfName(splitNameInput.value)
