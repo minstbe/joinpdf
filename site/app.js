@@ -48,7 +48,7 @@ let splitPages = []
 let selectedIndices = []
 let selDragIdx = null
 let annotations = {}
-let currentTool = "pen"
+let currentTool = "pointer"
 let isDrawing = false
 let currentStroke = null
 let drawingPageIdx = null
@@ -609,21 +609,13 @@ closePreview.addEventListener("click", () => {
 
 { let startX, startY, drawStarted
   previewDrawLayer.addEventListener("pointerdown", (e) => {
-    if (activePreviewPage === null) return
+    if (activePreviewPage === null || currentTool === "pointer") return
+    e.preventDefault()
     startX = e.clientX; startY = e.clientY
-    drawStarted = false
+    drawStarted = true
     if (!annotations[activePreviewPage]) annotations[activePreviewPage] = []
-  })
-  previewDrawLayer.addEventListener("pointermove", (e) => {
-    if (activePreviewPage === null) return
-    if (Math.hypot(e.clientX - startX, e.clientY - startY) < 4) return
     const r = previewDrawLayer.getBoundingClientRect()
     const p = { x: (e.clientX - r.left) / 3, y: (e.clientY - r.top) / 3 }
-    if (!drawStarted) {
-      drawStarted = true
-      currentStroke = { type: currentTool, color: currentTool === "highlighter" ? "#ffeb3b" : annoColor.value, points: [p], width: currentTool === "highlighter" ? 18 : 2 }
-      annotations[activePreviewPage].push(currentStroke)
-    }
     if (currentTool === "eraser") {
       const strokes = annotations[activePreviewPage]
       if (strokes) {
@@ -637,10 +629,35 @@ closePreview.addEventListener("click", () => {
           }
         }
       }
+      redrawPreview(activePreviewPage)
+    } else {
+      currentStroke = { type: currentTool, color: currentTool === "highlighter" ? "#ffeb3b" : annoColor.value, points: [p], width: currentTool === "highlighter" ? 18 : 2 }
+      annotations[activePreviewPage].push(currentStroke)
+    }
+  })
+  previewDrawLayer.addEventListener("pointermove", (e) => {
+    if (!drawStarted || currentTool === "pointer") return
+    if (activePreviewPage === null) return
+    const r = previewDrawLayer.getBoundingClientRect()
+    const p = { x: (e.clientX - r.left) / 3, y: (e.clientY - r.top) / 3 }
+    if (currentTool === "eraser") {
+      const strokes = annotations[activePreviewPage]
+      if (strokes) {
+        const r2 = 18
+        for (let i = strokes.length - 1; i >= 0; i--) {
+          for (const pt of strokes[i].points) {
+            if (Math.hypot(pt.x - p.x, pt.y - p.y) < r2) {
+              strokes.splice(i, 1)
+              break
+            }
+          }
+        }
+      }
+      redrawPreview(activePreviewPage)
     } else if (currentStroke) {
       currentStroke.points.push(p)
+      redrawPreview(activePreviewPage)
     }
-    redrawPreview(activePreviewPage)
   })
   previewDrawLayer.addEventListener("pointerup", () => {
     if (drawStarted && currentStroke && currentStroke.points.length <= 1) {
