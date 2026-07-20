@@ -22,13 +22,22 @@ const feedbackSubmit = document.getElementById("feedbackSubmit")
 const feedbackRefresh = document.getElementById("feedbackRefresh")
 const messagesList = document.getElementById("messagesList")
 const feedbackStatus = document.getElementById("feedbackStatus")
+const splitPreview = document.getElementById("splitPreview")
+const thumbnailGrid = document.getElementById("thumbnailGrid")
+const selectedArea = document.getElementById("selectedArea")
+const selectedStrip = document.getElementById("selectedStrip")
 let splitFileRef = null
 let mergeItems = []
 let draggingIndex = null
+let splitPages = []
+let selectedIndices = []
+let selDragIdx = null
 const API_BASE = (location.hostname === "localhost" || location.hostname === "127.0.0.1")
   ? (location.port === "5600" ? "" : "http://localhost:5600")
   : ""
 const MAX_FILE_SIZE = 100 * 1024 * 1024
+pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js"
+
 function track(event, params) {
   try {
     if (typeof gtag === "function") gtag("event", event, params || {})
@@ -144,9 +153,180 @@ window.addEventListener("keydown", e => {
 feedbackModal && feedbackModal.addEventListener("click", e => {
   if (e.target === feedbackModal) closeFeedback()
 })
-splitFileInput.addEventListener("change", e => {
+async function renderThumbnails(file) {
+  thumbnailGrid.innerHTML = "<div style='text-align:center;padding:20px;color:var(--muted)'>Loading page thumbnails…</div>"
+  splitPreview.classList.remove("hidden")
+  selectedArea.classList.add("hidden")
+  selectedIndices = []
+  splitPages = []
+  try {
+    const buffer = await file.arrayBuffer()
+    const pdf = await pdfjsLib.getDocument({ data: buffer }).promise
+    const total = pdf.numPages
+    splitPages = Array.from({ length: total }, (_, i) => i)
+    thumbnailGrid.innerHTML = ""
+    const scale = 0.4
+    for (let i = 1; i <= total; i++) {
+      const page = await pdf.getPage(i)
+      const vp = page.getViewport({ scale })
+      const canvas = document.createElement("canvas")
+      canvas.width = vp.width
+      canvas.height = vp.height
+      canvas.className = "thumb-canvas"
+      await page.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise
+      const item = document.createElement("div")
+      item.className = "thumb-item"
+      item.dataset.page = String(i - 1)
+      item.addEventListener("click", (e) => togglePage(i - 1, e.shiftKey))
+      const label = document.createElement("div")
+      label.className = "thumb-label"
+      label.textContent = String(i)
+      item.appendChild(canvas)
+      item.appendChild(label)
+      thumbnailGrid.appendChild(item)
+    }
+    updatePageSpec()
+  } catch (e) {
+    thumbnailGrid.innerHTML = "<div style='text-align:center;padding:20px;color:var(--muted)'>Failed to load preview. You can still type page numbers below.</div>"
+    splitPreview.classList.remove("hidden")
+  }
+}
+
+function togglePage(idx, shift) {
+  const total = splitPages.length
+  if (shift && selectedIndices.length > 0) {
+    const last = selectedIndices[selectedIndices.length - 1]
+    const [s, e] = last < idx ? [last, idx] : [idx, last]
+    for (let i = s; i <= e; i++) {
+      if (!selectedIndices.includes(i)) selectedIndices.push(i)
+    }
+  } else {
+    const pos = selectedIndices.indexOf(idx)
+    if (pos >= 0) selectedIndices.splice(pos, 1)
+    else selectedIndices.push(idx)
+  }
+  selectedIndices.sort((a, b) => a - b)
+  updateSelectionUI()
+  updatePageSpec()
+}
+
+function updateSelectionUI() {
+  for (const el of thumbnailGrid.querySelectorAll(".thumb-item")) {
+    const p = parseInt(el.dataset.page, 10)
+    el.classList.toggle("selected", selectedIndices.includes(p))
+  }
+  if (selectedIndices.length > 0) {
+    selectedArea.classList.remove("hidden")
+    renderSelectedStrip()
+  } else {
+    selectedArea.classList.add("hidden")
+  }
+}
+
+function renderSelectedStrip() {
+  selectedStrip.innerHTML = ""
+  for (let i = 0; i < selectedIndices.length; i++) {
+    const pageIdx = selectedIndices[i]
+    const originalCanvas = thumbnailGrid.querySelector(`.thumb-item[data-page="${pageIdx}"] canvas`)
+    const thumb = document.createElement("div")
+    thumb.className = "selected-thumb"
+    thumb.draggable = true
+    thumb.dataset.selIdx = String(i)
+    if (originalCanvas) {
+      const clone = document.createElement("canvas")
+      clone.className = "sel-canvas"
+      clone.width = 80
+      clone.height = (80 / originalCanvas.width) * originalCanvas.height
+      const ctx = clone.getContext("2d")
+      ctx.drawImage(originalCanvas, 0, 0, clone.width, clone.height)
+      thumb.appendChild(clone)
+    }
+    const label = document.createElement("div")
+    label.className = "thumb-label"
+    label.textContent = "p." + (pageIdx + 1)
+    thumb.appendChild(label)
+    const rm = document.createElement("button")
+    rm.className = "remove-sel"
+    rm.textContent = "×"
+    rm.addEventListener("click", (e) => {
+      e.stopPropagation()
+      selectedIndices.splice(i, 1)
+      updateSelectionUI()
+      updatePageSpec()
+    })
+    thumb.appendChild(rm)
+    thumb.addEventListener("dragstart", (e) => {
+      selDragIdx = parseInt(thumb.dataset.selIdx, 10)
+      thumb.classList.add("dragging")
+      e.dataTransfer.effectAllowed = "move"
+    })
+    thumb.addEventListener("dragend", () => {
+      thumb.classList.remove("dragging")
+      selDragIdx = null
+    })
+    thumb.addEventListener("dragover", (e) => {
+      e.preventDefault()
+      e.dataTransfer.dropEffect = "move"
+    })
+    thumb.addEventListener("drop", (e) => {
+      e.preventDefault()
+      const targetIdx = parseInt(thumb.dataset.selIdx, 10)
+      if (selDragIdx !== null && selDragIdx !== targetIdx) {
+        const [moved] = selectedIndices.splice(selDragIdx, 1)
+        selectedIndices.splice(targetIdx, 0, moved)
+        renderSelectedStrip()
+        updatePageSpec()
+      }
+    })
+    selectedStrip.appendChild(thumb)
+  }
+}
+
+function updatePageSpec() {
+  if (selectedIndices.length === 0) {
+    pageSpecInput.value = ""
+    return
+  }
+  if (selectedIndices.length === splitPages.length && selectedIndices.every((v, i) => v === i)) {
+    pageSpecInput.value = "all"
+    return
+  }
+  const ranges = []
+  let start = selectedIndices[0], end = selectedIndices[0]
+  for (let i = 1; i < selectedIndices.length; i++) {
+    if (selectedIndices[i] === end + 1) { end = selectedIndices[i] }
+    else {
+      ranges.push(start === end ? String(start + 1) : (start + 1) + "-" + (end + 1))
+      start = selectedIndices[i]; end = selectedIndices[i]
+    }
+  }
+  ranges.push(start === end ? String(start + 1) : (start + 1) + "-" + (end + 1))
+  pageSpecInput.value = ranges.join(",")
+}
+
+pageSpecInput.addEventListener("input", () => {
+  const spec = pageSpecInput.value
+  if (!spec) {
+    selectedIndices = []
+    updateSelectionUI()
+    return
+  }
+  const total = splitPages.length || 1
+  const indices = parsePages(spec, total)
+  if (indices) {
+    selectedIndices = indices
+    updateSelectionUI()
+  }
+})
+
+splitFileInput.addEventListener("change", async (e) => {
   splitFileRef = e.target.files && e.target.files[0] ? e.target.files[0] : null
   setStatus(splitStatus, "")
+  if (splitFileRef) {
+    await renderThumbnails(splitFileRef)
+  } else {
+    splitPreview.classList.add("hidden")
+  }
 })
 splitBtn.addEventListener("click", async () => {
   if (!splitFileRef) {
@@ -172,7 +352,8 @@ splitBtn.addEventListener("click", async () => {
     const buffer = await splitFileRef.arrayBuffer()
     const src = await PDFLib.PDFDocument.load(buffer)
     const total = src.getPageCount()
-    const indices = parsePages(pageSpecInput.value || "", total)
+    let indices = selectedIndices.length > 0 ? selectedIndices : parsePages(pageSpecInput.value || "", total)
+    if (indices && indices.length > 0 && indices.some(i => i >= total)) indices = null
     if (!indices || indices.length === 0) {
       setStatus(splitStatus, "Invalid page specification.", "error")
       setBusy(splitBtn, false, "Extract Pages", "Processing...")
@@ -223,6 +404,10 @@ function renderList() {
     li.dataset.index = String(i)
     const handle = document.createElement("div")
     handle.className = "handle"
+    const thumbCanvas = document.createElement("canvas")
+    thumbCanvas.className = "file-thumb"
+    thumbCanvas.width = 40
+    thumbCanvas.height = 52
     const name = document.createElement("div")
     name.className = "filename"
     name.textContent = item.name
@@ -262,6 +447,7 @@ function renderList() {
       renderList()
     })
     li.appendChild(handle)
+    li.appendChild(thumbCanvas)
     li.appendChild(name)
     li.appendChild(meta)
     li.appendChild(up)
@@ -291,6 +477,32 @@ function renderList() {
     })
     fileListEl.appendChild(li)
   }
+  loadMergeThumbs()
+}
+
+async function loadMergeThumbs() {
+  const canvases = fileListEl.querySelectorAll(".file-thumb")
+  const metas = fileListEl.querySelectorAll(".file-meta")
+  for (let i = 0; i < mergeItems.length; i++) {
+    if (i >= canvases.length) break
+    const canvas = canvases[i]
+    const item = mergeItems[i]
+    if (canvas.dataset.loaded === "1") continue
+    canvas.dataset.loaded = "1"
+    try {
+      if (!item._buf) item._buf = await item.file.arrayBuffer()
+      const pdf = await pdfjsLib.getDocument({ data: item._buf.slice(0) }).promise
+      item._pages = pdf.numPages
+      const page = await pdf.getPage(1)
+      const vp = page.getViewport({ scale: 0.15 })
+      canvas.width = vp.width
+      canvas.height = vp.height
+      await page.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise
+      if (i < metas.length) {
+        metas[i].textContent = formatSize(item.file.size) + " · " + item._pages + " pages"
+      }
+    } catch (e) {}
+  }
 }
 mergeBtn.addEventListener("click", async () => {
   if (mergeItems.length === 0) {
@@ -315,7 +527,7 @@ mergeBtn.addEventListener("click", async () => {
     track("merge_start", { count: mergeItems.length })
     const out = await PDFLib.PDFDocument.create()
     for (const item of mergeItems) {
-      const buffer = await item.file.arrayBuffer()
+      const buffer = item._buf || await item.file.arrayBuffer()
       const src = await PDFLib.PDFDocument.load(buffer)
       const count = src.getPageCount()
       const indices = Array.from({ length: count }, (_, i) => i)
