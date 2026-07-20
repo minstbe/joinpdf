@@ -675,3 +675,40 @@ textarea:focus {
 #previewDrawLayer {
   cursor: crosshair;
 }
+#fullscreenOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+}
+#fullscreenOverlay.hidden {
+  display: none;
+}
+.fs-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.fs-canvas-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  padding: 20px;
+  position: relative;
+}
+.fs-canvas-wrap canvas {
+  box-shadow: 0 4px 20px rgba(0,0,0,.15);
+}
+#fsDrawLayer {
+  position: absolute;
+  cursor: crosshair;
+}

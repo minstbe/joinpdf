@@ -39,6 +39,16 @@ const previewLabel = document.getElementById("previewLabel")
 const closePreview = document.getElementById("closePreview")
 const prevPreview = document.getElementById("prevPreview")
 const nextPreview = document.getElementById("nextPreview")
+const fullscreenPreview = document.getElementById("fullscreenPreview")
+const fullscreenOverlay = document.getElementById("fullscreenOverlay")
+const fsCanvas = document.getElementById("fsCanvas")
+const fsDrawLayer = document.getElementById("fsDrawLayer")
+const fsLabel = document.getElementById("fsLabel")
+const fsPrev = document.getElementById("fsPrev")
+const fsNext = document.getElementById("fsNext")
+const fsAnnoColor = document.getElementById("fsAnnoColor")
+const fsClearPage = document.getElementById("fsClearPage")
+const fsClose = document.getElementById("fsClose")
 const annoToolbar = document.getElementById("annoToolbar")
 const annoColor = document.getElementById("annoColor")
 const clearPageAnno = document.getElementById("clearPageAnno")
@@ -204,7 +214,216 @@ async function renderThumbnails(file) {
       item.addEventListener("click", (e) => {
         if (e.target.closest(".remove-sel")) return
         togglePage(i - 1, e.shiftKey)
-      })
+})
+
+function syncThumbnailAnnotation(pageIdx) {
+  const item = thumbnailGrid.querySelector(`.thumb-item[data-page="${pageIdx}"]`)
+  if (!item) return
+  let dl = item.querySelector(".anno-overlay")
+  if (!dl) {
+    dl = document.createElement("canvas")
+    dl.className = "anno-overlay"
+    const thumbCanvas = item.querySelector("canvas")
+    if (thumbCanvas) {
+      dl.width = thumbCanvas.width
+      dl.height = thumbCanvas.height
+      dl.style.position = "absolute"
+      dl.style.top = "0"
+      dl.style.left = "0"
+      dl.style.pointerEvents = "none"
+      item.style.position = "relative"
+      item.insertBefore(dl, item.firstChild)
+    }
+  }
+  const ctx = dl.getContext("2d")
+  ctx.clearRect(0, 0, dl.width, dl.height)
+  const strokes = annotations[pageIdx] || []
+  const sx = dl.width / (previewDrawLayer.width > 0 ? previewDrawLayer.width / 3 : 1)
+  for (const s of strokes) {
+    ctx.strokeStyle = s.color
+    ctx.globalAlpha = s.type === "highlighter" ? 0.45 : 1
+    ctx.lineWidth = s.width / 3
+    ctx.lineCap = "round"
+    ctx.lineJoin = "round"
+    if (s.points.length >= 2) {
+      ctx.beginPath()
+      ctx.moveTo(s.points[0].x / 3, s.points[0].y / 3)
+      for (let i = 1; i < s.points.length; i++) ctx.lineTo(s.points[i].x / 3, s.points[i].y / 3)
+      ctx.stroke()
+    }
+  }
+  ctx.globalAlpha = 1
+}
+
+let fsPdfDoc = null
+async function openFullscreen(pageIdx, pos) {
+  fsPrev.style.opacity = "0.3"
+  fsNext.style.opacity = "0.3"
+  if (pos === undefined) pos = selectedIndices.indexOf(pageIdx)
+  if (pos < 0) pos = 0
+  fullscreenOverlay.classList.remove("hidden")
+  document.body.style.overflow = "hidden"
+  fsLabel.textContent = "Page " + (pageIdx + 1)
+  activePreviewPage = pageIdx
+  previewPosInSelection = pos
+  try {
+    if (!fsPdfDoc) {
+      const buffer = await splitFileRef.arrayBuffer()
+      fsPdfDoc = await pdfjsLib.getDocument({ data: buffer }).promise
+    }
+    const page = await fsPdfDoc.getPage(pageIdx + 1)
+    const maxW = window.innerWidth - 80
+    const maxH = window.innerHeight - 80
+    const vpOrig = page.getViewport({ scale: 1 })
+    const scale = Math.min(maxW / vpOrig.width, maxH / vpOrig.height, 2.5)
+    const vp = page.getViewport({ scale })
+    fsCanvas.width = vp.width
+    fsCanvas.height = vp.height
+    fsDrawLayer.width = vp.width
+    fsDrawLayer.height = vp.height
+    fsDrawLayer.style.width = vp.width + "px"
+    fsDrawLayer.style.height = vp.height + "px"
+    await page.render({ canvasContext: fsCanvas.getContext("2d"), viewport: vp }).promise
+    redrawFS(pageIdx)
+    updateFSNav()
+  } catch (e) {}
+}
+function updateFSNav() {
+  const total = selectedIndices.length
+  fsPrev.style.opacity = previewPosInSelection > 0 ? "1" : "0.3"
+  fsNext.style.opacity = previewPosInSelection < total - 1 ? "1" : "0.3"
+  if (total > 1) {
+    fsLabel.textContent = "Page " + (activePreviewPage + 1) + " (" + (previewPosInSelection + 1) + " of " + total + ")"
+  }
+}
+function redrawFS(pageIdx) {
+  const ctx = fsDrawLayer.getContext("2d")
+  ctx.clearRect(0, 0, fsDrawLayer.width, fsDrawLayer.height)
+  const strokes = annotations[pageIdx] || []
+  const sx = fsDrawLayer.width / 3
+  for (const s of strokes) {
+    ctx.strokeStyle = s.color
+    ctx.globalAlpha = s.type === "highlighter" ? 0.45 : 1
+    ctx.lineWidth = s.width * sx / 3
+    ctx.lineCap = "round"
+    ctx.lineJoin = "round"
+    if (s.points.length >= 2) {
+      ctx.beginPath()
+      ctx.moveTo(s.points[0].x * sx, s.points[0].y * sx)
+      for (let i = 1; i < s.points.length; i++) ctx.lineTo(s.points[i].x * sx, s.points[i].y * sx)
+      ctx.stroke()
+    }
+  }
+  ctx.globalAlpha = 1
+}
+function closeFullscreen() {
+  fullscreenOverlay.classList.add("hidden")
+  document.body.style.overflow = ""
+  fsPdfDoc = null
+}
+
+fullscreenPreview.addEventListener("click", () => {
+  if (activePreviewPage !== null) openFullscreen(activePreviewPage, previewPosInSelection)
+})
+fsClose.addEventListener("click", closeFullscreen)
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !fullscreenOverlay.classList.contains("hidden")) {
+    closeFullscreen()
+  }
+})
+fsPrev.addEventListener("click", () => {
+  if (previewPosInSelection > 0) openFullscreen(selectedIndices[previewPosInSelection - 1], previewPosInSelection - 1)
+})
+fsNext.addEventListener("click", () => {
+  if (previewPosInSelection < selectedIndices.length - 1) openFullscreen(selectedIndices[previewPosInSelection + 1], previewPosInSelection + 1)
+})
+
+{ let startX, startY, drawStarted
+  fsDrawLayer.addEventListener("pointerdown", (e) => {
+    if (currentTool === "pointer") return
+    e.preventDefault()
+    startX = e.clientX; startY = e.clientY
+    drawStarted = true
+    if (!annotations[activePreviewPage]) annotations[activePreviewPage] = []
+    const r = fsDrawLayer.getBoundingClientRect()
+    const sx = fsDrawLayer.width / 3
+    const p = { x: (e.clientX - r.left) / sx, y: (e.clientY - r.top) / sx }
+    if (currentTool === "eraser") {
+      const strokes = annotations[activePreviewPage]
+      if (strokes) {
+        for (let i = strokes.length - 1; i >= 0; i--) {
+          for (const pt of strokes[i].points) {
+            if (Math.hypot(pt.x - p.x, pt.y - p.y) < 20) {
+              strokes.splice(i, 1)
+              break
+            }
+          }
+        }
+      }
+      redrawFS(activePreviewPage)
+      syncThumbnailAnnotation(activePreviewPage)
+    } else {
+      currentStroke = { type: currentTool, color: currentTool === "highlighter" ? "#ffeb3b" : fsAnnoColor.value, points: [p], width: currentTool === "highlighter" ? 18 : 2 }
+      annotations[activePreviewPage].push(currentStroke)
+    }
+  })
+  fsDrawLayer.addEventListener("pointermove", (e) => {
+    if (!drawStarted || currentTool === "pointer") return
+    const r = fsDrawLayer.getBoundingClientRect()
+    const sx = fsDrawLayer.width / 3
+    const p = { x: (e.clientX - r.left) / sx, y: (e.clientY - r.top) / sx }
+    if (currentTool === "eraser") {
+      const strokes = annotations[activePreviewPage]
+      if (strokes) {
+        for (let i = strokes.length - 1; i >= 0; i--) {
+          for (const pt of strokes[i].points) {
+            if (Math.hypot(pt.x - p.x, pt.y - p.y) < 20) {
+              strokes.splice(i, 1)
+              break
+            }
+          }
+        }
+      }
+      redrawFS(activePreviewPage)
+      syncThumbnailAnnotation(activePreviewPage)
+    } else if (currentStroke) {
+      currentStroke.points.push(p)
+      redrawFS(activePreviewPage)
+    }
+  })
+  fsDrawLayer.addEventListener("pointerup", () => {
+    if (drawStarted && currentStroke && currentStroke.points.length <= 1) {
+      annotations[activePreviewPage].pop()
+      redrawFS(activePreviewPage)
+    }
+    if (drawStarted) syncThumbnailAnnotation(activePreviewPage)
+    currentStroke = null; drawStarted = false
+  })
+  fsDrawLayer.addEventListener("pointerleave", () => {
+    if (drawStarted) syncThumbnailAnnotation(activePreviewPage)
+    currentStroke = null; drawStarted = false
+  })
+}
+
+document.querySelectorAll("[data-fstool]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("[data-fstool]").forEach(b => b.classList.remove("active"))
+    btn.classList.add("active")
+    currentTool = btn.dataset.fstool
+    document.querySelectorAll(".tool-btn[data-tool]").forEach(b => {
+      b.classList.toggle("active", b.dataset.tool === currentTool)
+    })
+  })
+})
+fsAnnoColor.addEventListener("input", () => { annoColor.value = fsAnnoColor.value })
+annoColor.addEventListener("input", () => { fsAnnoColor.value = annoColor.value })
+fsClearPage.addEventListener("click", () => {
+  if (activePreviewPage !== null) {
+    delete annotations[activePreviewPage]
+    redrawFS(activePreviewPage)
+    syncThumbnailAnnotation(activePreviewPage)
+  }
+})
       const label = document.createElement("div")
       label.className = "thumb-label"
       label.textContent = String(i)
@@ -695,9 +914,13 @@ closePreview.addEventListener("click", () => {
       annotations[activePreviewPage].pop()
       redrawPreview(activePreviewPage)
     }
+    if (drawStarted) syncThumbnailAnnotation(activePreviewPage)
     currentStroke = null; drawStarted = false
   })
-  previewDrawLayer.addEventListener("pointerleave", () => { currentStroke = null; drawStarted = false })
+  previewDrawLayer.addEventListener("pointerleave", () => {
+    if (drawStarted) syncThumbnailAnnotation(activePreviewPage)
+    currentStroke = null; drawStarted = false
+  })
 }
 
 function handleDragOver(el, e) {

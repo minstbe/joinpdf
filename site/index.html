@@ -84,6 +84,7 @@
             <button class="tool-btn" id="prevPreview" title="Previous page">◀</button>
             <span id="previewLabel">Page 1</span>
             <button class="tool-btn" id="nextPreview" title="Next page">▶</button>
+            <button class="tool-btn" id="fullscreenPreview" title="Full screen">⛶</button>
             <button class="tool-btn" id="closePreview" title="Close preview">×</button>
           </div>
           <div class="preview-canvas-wrap" id="previewCanvasWrap">
@@ -189,6 +190,26 @@
         </div>
         <ul id="messagesList" class="messages-list"></ul>
       </div>
+    </div>
+  </div>
+  <div id="fullscreenOverlay" class="hidden">
+    <div class="fs-header">
+      <button class="tool-btn" id="fsPrev">◀</button>
+      <span id="fsLabel">Page 1</span>
+      <button class="tool-btn" id="fsNext">▶</button>
+      <span class="toolbar-sep"></span>
+      <button class="tool-btn active" data-fstool="pointer" title="Pointer">↖</button>
+      <button class="tool-btn" data-fstool="pen" title="Pen">✎</button>
+      <button class="tool-btn" data-fstool="highlighter" title="Highlighter">◧</button>
+      <button class="tool-btn" data-fstool="eraser" title="Eraser">⌫</button>
+      <input type="color" id="fsAnnoColor" value="#ff1a1a" title="Color" class="anno-color">
+      <span class="toolbar-sep"></span>
+      <button class="tool-btn" id="fsClearPage">Clear Page</button>
+      <button class="tool-btn" id="fsClose">Close</button>
+    </div>
+    <div class="fs-canvas-wrap">
+      <canvas id="fsCanvas"></canvas>
+      <canvas id="fsDrawLayer" class="draw-layer"></canvas>
     </div>
   </div>
   <script src="app.js" defer></script>
