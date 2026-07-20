@@ -186,7 +186,7 @@ feedbackModal && feedbackModal.addEventListener("click", e => {
   if (e.target === feedbackModal) closeFeedback()
 })
 async function renderThumbnails(file) {
-  thumbnailGrid.innerHTML = "<div style='text-align:center;padding:20px;color:var(--muted)'>Loading page thumbnails…</div>"
+  thumbnailGrid.innerHTML = "<div style='text-align:center;padding:20px;color:var(--muted)'>Loading page thumbnails\u2026/div>"
   splitPreview.classList.remove("hidden")
   selectedArea.classList.add("hidden")
   selectedIndices = []
@@ -214,8 +214,20 @@ async function renderThumbnails(file) {
       item.addEventListener("click", (e) => {
         if (e.target.closest(".remove-sel")) return
         togglePage(i - 1, e.shiftKey)
-})
-
+      })
+      const label = document.createElement("div")
+      label.className = "thumb-label"
+      label.textContent = String(i)
+      item.appendChild(canvas)
+      item.appendChild(label)
+      thumbnailGrid.appendChild(item)
+    }
+    updatePageSpec()
+  } catch (e) {
+    thumbnailGrid.innerHTML = "<div style='text-align:center;padding:20px;color:var(--muted)'>Failed to load preview. You can still type page numbers below.</div>"
+    splitPreview.classList.remove("hidden")
+  }
+}
 
 function syncThumbnailAnnotation(pageIdx) {
   const item = thumbnailGrid.querySelector(`.thumb-item[data-page="${pageIdx}"]`)
@@ -1032,7 +1044,7 @@ function renderList() {
     meta.textContent = formatSize(item.file.size)
     const up = document.createElement("button")
     up.className = "move"
-    up.textContent = "▲"
+    up.textContent = "\u25B2"
     up.addEventListener("click", () => {
       const idx = parseInt(li.dataset.index, 10)
       if (idx > 0) {
@@ -1044,7 +1056,7 @@ function renderList() {
     })
     const down = document.createElement("button")
     down.className = "move"
-    down.textContent = "▼"
+    down.textContent = "\u25BC"
     down.addEventListener("click", () => {
       const idx = parseInt(li.dataset.index, 10)
       if (idx < mergeItems.length - 1) {
@@ -1244,3 +1256,4 @@ themeToggle.addEventListener("click", () => {
   applyTheme(next)
   track("theme_toggle", { theme: next })
 })
+
