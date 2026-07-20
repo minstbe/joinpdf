@@ -239,17 +239,16 @@ function syncThumbnailAnnotation(pageIdx) {
   const ctx = dl.getContext("2d")
   ctx.clearRect(0, 0, dl.width, dl.height)
   const strokes = annotations[pageIdx] || []
-  const scale = dl.width / 3
   for (const s of strokes) {
     ctx.strokeStyle = s.color
     ctx.globalAlpha = s.type === "highlighter" ? 0.45 : 1
-    ctx.lineWidth = s.width / 3
+    ctx.lineWidth = s.width / 2
     ctx.lineCap = "round"
     ctx.lineJoin = "round"
     if (s.points.length >= 2) {
       ctx.beginPath()
-      ctx.moveTo(s.points[0].x / 3, s.points[0].y / 3)
-      for (let i = 1; i < s.points.length; i++) ctx.lineTo(s.points[i].x / 3, s.points[i].y / 3)
+      ctx.moveTo(s.points[0].x * dl.width, s.points[0].y * dl.height)
+      for (let i = 1; i < s.points.length; i++) ctx.lineTo(s.points[i].x * dl.width, s.points[i].y * dl.height)
       ctx.stroke()
     }
   }
@@ -301,17 +300,17 @@ function redrawFS(pageIdx) {
   const ctx = fsDrawLayer.getContext("2d")
   ctx.clearRect(0, 0, fsDrawLayer.width, fsDrawLayer.height)
   const strokes = annotations[pageIdx] || []
-  const sx = fsDrawLayer.width / 3
+  const w = fsDrawLayer.width, h = fsDrawLayer.height
   for (const s of strokes) {
     ctx.strokeStyle = s.color
     ctx.globalAlpha = s.type === "highlighter" ? 0.45 : 1
-    ctx.lineWidth = s.width * sx / 3
+    ctx.lineWidth = s.width * 3
     ctx.lineCap = "round"
     ctx.lineJoin = "round"
     if (s.points.length >= 2) {
       ctx.beginPath()
-      ctx.moveTo(s.points[0].x * sx, s.points[0].y * sx)
-      for (let i = 1; i < s.points.length; i++) ctx.lineTo(s.points[i].x * sx, s.points[i].y * sx)
+      ctx.moveTo(s.points[0].x * w, s.points[0].y * h)
+      for (let i = 1; i < s.points.length; i++) ctx.lineTo(s.points[i].x * w, s.points[i].y * h)
       ctx.stroke()
     }
   }
@@ -348,8 +347,7 @@ fsNext.addEventListener("click", () => {
     fsDrawLayer.setPointerCapture(e.pointerId)
     if (!annotations[activePreviewPage]) annotations[activePreviewPage] = []
     const r = fsDrawLayer.getBoundingClientRect()
-    const sx = fsDrawLayer.width / 3
-    const p = { x: (e.clientX - r.left) / sx, y: (e.clientY - r.top) / sx }
+    const p = { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }
     if (currentTool === "eraser") {
       doErase(activePreviewPage, p, (i) => { redrawFS(i); syncThumbnailAnnotation(i) })
     } else {
@@ -360,8 +358,7 @@ fsNext.addEventListener("click", () => {
   document.addEventListener("pointermove", (e) => {
     if (!drawing || currentTool === "pointer" || currentTool === "eraser" || !currentStroke) return
     const r = fsDrawLayer.getBoundingClientRect()
-    const sx = fsDrawLayer.width / 3
-    const p = { x: (e.clientX - r.left) / sx, y: (e.clientY - r.top) / sx }
+    const p = { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }
     currentStroke.points.push(p)
     redrawFS(activePreviewPage)
   })
@@ -528,20 +525,15 @@ function redrawPage(pageIdx) {
 function flattenAnnotations(pdfPage, pageIdx) {
   const strokes = annotations[pageIdx]
   if (!strokes || strokes.length === 0) return
-  const scale = 0.4
-  const pageW = pdfPage.getWidth()
-  const pageH = pdfPage.getHeight()
-  const thumbW = pageW * scale
-  const thumbH = pageH * scale
-  const sx = pageW / thumbW
-  const sy = pageH / thumbH
+  const w = pdfPage.getWidth()
+  const h = pdfPage.getHeight()
   for (const s of strokes) {
     if (s.points.length < 2) continue
     const color = s.type === "highlighter" ? PDFLib.rgb(1, 0.92, 0.23) : hexToRgb(s.color)
-    const pathData = pointsToSvgPath(s.points, sx, sy)
+    const pathData = pointsToSvgPath(s.points, w, h)
     pdfPage.drawSvgPath(pathData, {
       borderColor: color,
-      borderWidth: s.width * sx,
+      borderWidth: s.width * 3,
       opacity: s.type === "highlighter" ? 0.45 : 1,
     })
   }
@@ -554,9 +546,9 @@ function hexToRgb(hex) {
   return PDFLib.rgb(r, g, b)
 }
 
-function pointsToSvgPath(points, sx, sy) {
-  let d = `M ${points[0].x * sx} ${points[0].y * sy}`
-  for (let i = 1; i < points.length; i++) d += ` L ${points[i].x * sx} ${points[i].y * sy}`
+function pointsToSvgPath(points, w, h) {
+  let d = `M ${points[0].x * w} ${points[0].y * h}`
+  for (let i = 1; i < points.length; i++) d += ` L ${points[i].x * w} ${points[i].y * h}`
   return d
 }
 
@@ -822,7 +814,7 @@ function redrawPreview(pageIdx) {
   const ctx = previewDrawLayer.getContext("2d")
   ctx.clearRect(0, 0, previewDrawLayer.width, previewDrawLayer.height)
   const strokes = annotations[pageIdx] || []
-  const sx = previewDrawLayer.width / (previewDrawLayer.width > 0 ? previewDrawLayer.width : 1)
+  const w = previewDrawLayer.width, h = previewDrawLayer.height
   for (const s of strokes) {
     ctx.strokeStyle = s.color
     ctx.globalAlpha = s.type === "highlighter" ? 0.45 : 1
@@ -831,8 +823,8 @@ function redrawPreview(pageIdx) {
     ctx.lineJoin = "round"
     if (s.points.length >= 2) {
       ctx.beginPath()
-      ctx.moveTo(s.points[0].x * 3, s.points[0].y * 3)
-      for (let i = 1; i < s.points.length; i++) ctx.lineTo(s.points[i].x * 3, s.points[i].y * 3)
+      ctx.moveTo(s.points[0].x * w, s.points[0].y * h)
+      for (let i = 1; i < s.points.length; i++) ctx.lineTo(s.points[i].x * w, s.points[i].y * h)
       ctx.stroke()
     }
   }
@@ -868,9 +860,9 @@ function doErase(pageIdx, p, redrawFn) {
     previewDrawLayer.setPointerCapture(e.pointerId)
     if (!annotations[activePreviewPage]) annotations[activePreviewPage] = []
     const r = previewDrawLayer.getBoundingClientRect()
-    const p = { x: (e.clientX - r.left) / 3, y: (e.clientY - r.top) / 3 }
+    const p = { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }
     if (currentTool === "eraser") {
-      doErase(activePreviewPage, p, redrawPreview)
+      doErase(activePreviewPage, p, (i) => { redrawPreview(i) })
     } else {
       currentStroke = { type: currentTool, color: currentTool === "highlighter" ? "#ffeb3b" : annoColor.value, points: [p], width: currentTool === "highlighter" ? 18 : 2 }
       annotations[activePreviewPage].push(currentStroke)
@@ -879,7 +871,7 @@ function doErase(pageIdx, p, redrawFn) {
   document.addEventListener("pointermove", (e) => {
     if (!drawing || currentTool === "pointer" || currentTool === "eraser" || !currentStroke) return
     const r = previewDrawLayer.getBoundingClientRect()
-    const p = { x: (e.clientX - r.left) / 3, y: (e.clientY - r.top) / 3 }
+    const p = { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }
     currentStroke.points.push(p)
     redrawPreview(activePreviewPage)
   })
