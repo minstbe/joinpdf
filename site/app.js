@@ -220,42 +220,57 @@ async function renderThumbnails(file) {
   }
 }
 
-function attachDrawEvents(canvas, pageIdx, item) {
+function attachDrawEvents(drawCanvas, pageIdx, item) {
+  let startX = 0, startY = 0, drawStarted = false
   const getPos = (e) => {
-    const r = canvas.getBoundingClientRect()
-    return { x: (e.clientX - r.left) * (canvas.width / r.width), y: (e.clientY - r.top) * (canvas.height / r.height) }
+    const r = item.getBoundingClientRect()
+    const canvasW = drawCanvas.width
+    const canvasH = drawCanvas.height
+    const imgEl = item.querySelector("canvas:not(.draw-layer)")
+    const imgR = imgEl ? imgEl.getBoundingClientRect() : r
+    return { x: (e.clientX - imgR.left) * (canvasW / imgR.width), y: (e.clientY - imgR.top) * (canvasH / imgR.height) }
   }
-  canvas.addEventListener("pointerdown", (e) => {
-    e.preventDefault()
-    canvas.setPointerCapture(e.pointerId)
-    isDrawing = true
-    drawingPageIdx = pageIdx
-    const p = getPos(e)
+  item.addEventListener("pointerdown", (e) => {
+    if (e.target.classList.contains("remove-sel")) return
+    startX = e.clientX
+    startY = e.clientY
+    drawStarted = false
     if (!annotations[pageIdx]) annotations[pageIdx] = []
-    currentStroke = { type: currentTool, color: currentTool === "highlighter" ? "#ffeb3b" : annoColor.value, points: [p], width: currentTool === "highlighter" ? 18 : 2 }
-    annotations[pageIdx].push(currentStroke)
-    redrawPage(pageIdx)
   })
-  canvas.addEventListener("pointermove", (e) => {
-    if (!isDrawing || drawingPageIdx !== pageIdx) return
-    const p = getPos(e)
+  item.addEventListener("pointermove", (e) => {
+    if (Math.hypot(e.clientX - startX, e.clientY - startY) < 6) return
+    if (!drawStarted) {
+      drawStarted = true
+      const p = getPos(e)
+      currentStroke = { type: currentTool, color: currentTool === "highlighter" ? "#ffeb3b" : annoColor.value, points: [p], width: currentTool === "highlighter" ? 18 : 2 }
+      annotations[pageIdx].push(currentStroke)
+    }
     if (currentTool === "eraser") {
+      const p = getPos(e)
       checkErase(pageIdx, p)
-    } else {
-      currentStroke.points.push(p)
+    } else if (currentStroke) {
+      currentStroke.points.push(getPos(e))
     }
     redrawPage(pageIdx)
   })
-  canvas.addEventListener("pointerup", () => {
-    isDrawing = false
+  item.addEventListener("pointerup", () => {
+    if (drawStarted && currentStroke && currentStroke.points.length === 1) {
+      annotations[pageIdx].pop()
+      redrawPage(pageIdx)
+    }
     currentStroke = null
-    drawingPageIdx = null
+    drawStarted = false
   })
-  canvas.addEventListener("pointerleave", () => {
-    isDrawing = false
+  item.addEventListener("pointerleave", () => {
     currentStroke = null
-    drawingPageIdx = null
+    drawStarted = false
   })
+  item.addEventListener("click", (e) => {
+    if (drawStarted || (e.target.classList && e.target.classList.contains("remove-sel"))) {
+      e.stopPropagation()
+      e.preventDefault()
+    }
+  }, true)
 }
 
 function checkErase(pageIdx, p) {

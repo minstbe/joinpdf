@@ -641,8 +641,4 @@ textarea:focus {
   top: 0;
   left: 0;
   cursor: crosshair;
-  pointer-events: none;
-}
-.thumb-item.drawing .draw-layer {
-  pointer-events: auto;
 }
