@@ -326,15 +326,21 @@ pageSpecInput.addEventListener("input", () => {
 function expandCard(card) {
   splitCard.classList.remove("collapsed")
   mergeCard.classList.remove("collapsed")
+  const container = document.querySelector(".container")
+  container.classList.remove("split-active", "merge-active")
   if (card === "split") {
     mergeCard.classList.add("collapsed")
+    container.classList.add("split-active")
   } else if (card === "merge") {
     splitCard.classList.add("collapsed")
+    container.classList.add("merge-active")
   }
 }
 function resetCards() {
   splitCard.classList.remove("collapsed")
   mergeCard.classList.remove("collapsed")
+  const container = document.querySelector(".container")
+  container.classList.remove("split-active", "merge-active")
 }
 splitCard.addEventListener("click", (e) => {
   if (splitCard.classList.contains("collapsed")) expandCard("split")

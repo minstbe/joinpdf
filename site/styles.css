@@ -71,6 +71,14 @@ body {
   .container {
     grid-template-columns: 1fr 1fr;
   }
+  .container.split-active {
+    grid-template-columns: 1fr 56px;
+    gap: 12px;
+  }
+  .container.merge-active {
+    grid-template-columns: 56px 1fr;
+    gap: 12px;
+  }
 }
 .card {
   background: var(--surface);
@@ -81,16 +89,18 @@ body {
   transition: padding .3s;
 }
 .card.collapsed {
-  padding: 16px 24px;
+  padding: 12px;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 14px;
+  justify-content: center;
+  gap: 8px;
   overflow: hidden;
+  border-radius: 16px;
 }
 .card.collapsed .card-title {
-  margin-bottom: 0;
-  font-size: 18px;
+  margin: 0;
+  font-size: 14px;
 }
 .card.collapsed .card-desc,
 .card.collapsed .note,
@@ -104,15 +114,33 @@ body {
 .card.collapsed #splitPreview {
   display: none;
 }
+@media (min-width: 960px) {
+  .card.collapsed {
+    flex-direction: column;
+    padding: 14px 6px;
+    border-radius: 40px;
+  }
+  .card.collapsed .card-title {
+    writing-mode: vertical-lr;
+    font-size: 13px;
+    letter-spacing: .05em;
+  }
+}
 .expand-hint {
-  font-size: 13px;
+  font-size: 11px;
   color: var(--muted);
-  opacity: 0;
-  transition: opacity .3s;
+}
+@media (min-width: 960px) {
+  .expand-hint {
+    writing-mode: vertical-lr;
+  }
 }
 .card.collapsed .expand-hint {
-  opacity: 1;
-  margin-left: auto;
+  display: inline;
+}
+.card.collapsed:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 .card-title {
   margin: 0;
