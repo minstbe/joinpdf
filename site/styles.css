@@ -78,6 +78,41 @@ body {
   border-radius: 16px;
   box-shadow: var(--shadow);
   padding: 24px;
+  transition: padding .3s;
+}
+.card.collapsed {
+  padding: 16px 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  overflow: hidden;
+}
+.card.collapsed .card-title {
+  margin-bottom: 0;
+  font-size: 18px;
+}
+.card.collapsed .card-desc,
+.card.collapsed .note,
+.card.collapsed .field,
+.card.collapsed .actions,
+.card.collapsed .list-header,
+.card.collapsed .file-list,
+.card.collapsed .grid-header,
+.card.collapsed .thumbnail-grid,
+.card.collapsed .selected-area,
+.card.collapsed #splitPreview {
+  display: none;
+}
+.expand-hint {
+  font-size: 13px;
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity .3s;
+}
+.card.collapsed .expand-hint {
+  opacity: 1;
+  margin-left: auto;
 }
 .card-title {
   margin: 0;

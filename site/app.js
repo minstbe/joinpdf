@@ -22,6 +22,10 @@ const feedbackSubmit = document.getElementById("feedbackSubmit")
 const feedbackRefresh = document.getElementById("feedbackRefresh")
 const messagesList = document.getElementById("messagesList")
 const feedbackStatus = document.getElementById("feedbackStatus")
+const splitCard = document.getElementById("splitCard")
+const mergeCard = document.getElementById("mergeCard")
+const splitExpandHint = document.getElementById("splitExpandHint")
+const mergeExpandHint = document.getElementById("mergeExpandHint")
 const splitPreview = document.getElementById("splitPreview")
 const thumbnailGrid = document.getElementById("thumbnailGrid")
 const selectedArea = document.getElementById("selectedArea")
@@ -319,13 +323,34 @@ pageSpecInput.addEventListener("input", () => {
   }
 })
 
+function expandCard(card) {
+  splitCard.classList.remove("collapsed")
+  mergeCard.classList.remove("collapsed")
+  if (card === "split") {
+    mergeCard.classList.add("collapsed")
+  } else if (card === "merge") {
+    splitCard.classList.add("collapsed")
+  }
+}
+function resetCards() {
+  splitCard.classList.remove("collapsed")
+  mergeCard.classList.remove("collapsed")
+}
+splitCard.addEventListener("click", (e) => {
+  if (splitCard.classList.contains("collapsed")) expandCard("split")
+})
+mergeCard.addEventListener("click", (e) => {
+  if (mergeCard.classList.contains("collapsed")) expandCard("merge")
+})
 splitFileInput.addEventListener("change", async (e) => {
   splitFileRef = e.target.files && e.target.files[0] ? e.target.files[0] : null
   setStatus(splitStatus, "")
   if (splitFileRef) {
+    expandCard("split")
     await renderThumbnails(splitFileRef)
   } else {
     splitPreview.classList.add("hidden")
+    if (mergeItems.length === 0) resetCards()
   }
 })
 splitBtn.addEventListener("click", async () => {
@@ -384,6 +409,7 @@ mergeFilesInput.addEventListener("change", e => {
   for (const f of files) {
     mergeItems.push({ id: genId(), file: f, name: f.name })
   }
+  if (mergeItems.length > 0) expandCard("merge")
   renderList()
   setStatus(mergeStatus, "")
   track("merge_files_selected", { count: files.length })
@@ -392,6 +418,7 @@ clearListBtn.addEventListener("click", () => {
   mergeItems = []
   renderList()
   setStatus(mergeStatus, "")
+  if (!splitFileRef) resetCards()
   track("merge_list_cleared")
 })
 function renderList() {
@@ -478,6 +505,7 @@ function renderList() {
     fileListEl.appendChild(li)
   }
   loadMergeThumbs()
+  if (mergeItems.length === 0 && !splitFileRef) resetCards()
 }
 
 async function loadMergeThumbs() {

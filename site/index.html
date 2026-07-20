@@ -57,8 +57,9 @@
     <div class="privacy-banner">Privacy-first: No upload. Files never leave your device. All processing happens in your browser.</div>
   </header>
   <main class="container">
-    <section class="card">
+    <section class="card split-card" id="splitCard">
       <h2 class="card-title">Split PDF</h2>
+      <span class="expand-hint hidden" id="splitExpandHint">Click to expand</span>
       <p class="card-desc">Click pages to select, then drag selected to reorder.</p>
       <p class="note">No upload — files stay on your device.</p>
       <div class="field">
@@ -86,8 +87,9 @@
         <div id="splitStatus" class="status"></div>
       </div>
     </section>
-    <section class="card">
+    <section class="card merge-card" id="mergeCard">
       <h2 class="card-title">Merge PDFs</h2>
+      <span class="expand-hint hidden" id="mergeExpandHint">Click to expand</span>
       <p class="card-desc">Combine multiple PDFs, drag to reorder, and download.</p>
       <p class="note">No upload — files stay on your device.</p>
       <div class="field">
