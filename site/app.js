@@ -229,29 +229,9 @@ async function renderThumbnails(file) {
   }
 }
 
-function syncThumbnailAnnotation(pageIdx) {
-  const item = thumbnailGrid.querySelector(`.thumb-item[data-page="${pageIdx}"]`)
-  if (!item) return
-  const thumbCanvas = item.querySelector("canvas.thumb-canvas, canvas")
-  if (!thumbCanvas) return
-  let dl = item.querySelector(".anno-overlay")
-  if (!dl) {
-    dl = document.createElement("canvas")
-    dl.className = "anno-overlay"
-    dl.width = thumbCanvas.width
-    dl.height = thumbCanvas.height
-    dl.style.cssText = "position:absolute;top:0;left:0;width:" + thumbCanvas.width + "px;height:" + thumbCanvas.height + "px;pointer-events:none;"
-    item.style.position = "relative"
-    const label = item.querySelector(".thumb-label")
-    if (label) {
-      item.insertBefore(dl, label)
-    } else {
-      item.appendChild(dl)
-    }
-  }
-  const ctx = dl.getContext("2d")
-  ctx.clearRect(0, 0, dl.width, dl.height)
-  const strokes = annotations[pageIdx] || []
+function drawAnnotations(canvas, strokes) {
+  const ctx = canvas.getContext("2d")
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
   for (const s of strokes) {
     ctx.strokeStyle = s.color
     ctx.globalAlpha = s.type === "highlighter" ? 0.45 : 1
@@ -260,12 +240,38 @@ function syncThumbnailAnnotation(pageIdx) {
     ctx.lineJoin = "round"
     if (s.points.length >= 2) {
       ctx.beginPath()
-      ctx.moveTo(s.points[0].x * dl.width, s.points[0].y * dl.height)
-      for (let i = 1; i < s.points.length; i++) ctx.lineTo(s.points[i].x * dl.width, s.points[i].y * dl.height)
+      ctx.moveTo(s.points[0].x * canvas.width, s.points[0].y * canvas.height)
+      for (let i = 1; i < s.points.length; i++) ctx.lineTo(s.points[i].x * canvas.width, s.points[i].y * canvas.height)
       ctx.stroke()
     }
   }
   ctx.globalAlpha = 1
+}
+
+function syncThumbnailAnnotation(pageIdx) {
+  const item = thumbnailGrid.querySelector(`.thumb-item[data-page="${pageIdx}"]`)
+  if (item) {
+    const thumbCanvas = item.querySelector("canvas.thumb-canvas, canvas")
+    if (thumbCanvas) {
+      let dl = item.querySelector(".anno-overlay")
+      if (!dl) {
+        dl = document.createElement("canvas")
+        dl.className = "anno-overlay"
+        dl.width = thumbCanvas.width
+        dl.height = thumbCanvas.height
+        dl.style.cssText = "position:absolute;top:0;left:0;width:" + thumbCanvas.width + "px;height:" + thumbCanvas.height + "px;pointer-events:none;"
+        item.style.position = "relative"
+        const label = item.querySelector(".thumb-label")
+        if (label) { item.insertBefore(dl, label) } else { item.appendChild(dl) }
+      }
+      drawAnnotations(dl, annotations[pageIdx] || [])
+    }
+  }
+  const selThumb = selectedStrip.querySelector(`.selected-thumb[data-page-idx="${pageIdx}"]`)
+  if (selThumb) {
+    const overlay = selThumb.querySelector(".sel-anno-overlay")
+    if (overlay) drawAnnotations(overlay, annotations[pageIdx] || [])
+  }
 }
 
 let fsPdfDoc = null
@@ -603,6 +609,13 @@ function renderSelectedStrip() {
       const ctx = clone.getContext("2d")
       ctx.drawImage(originalCanvas, 0, 0, clone.width, clone.height)
       thumb.appendChild(clone)
+      const overlay = document.createElement("canvas")
+      overlay.className = "sel-anno-overlay"
+      overlay.width = clone.width
+      overlay.height = clone.height
+      overlay.style.cssText = "position:absolute;top:0;left:0;width:" + clone.width + "px;height:" + clone.height + "px;pointer-events:none;"
+      thumb.style.position = "relative"
+      thumb.appendChild(overlay)
     }
     const label = document.createElement("div")
     label.className = "thumb-label"
