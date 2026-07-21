@@ -551,8 +551,8 @@ function hexToRgb(hex) {
 }
 
 function pointsToSvgPath(points, w, h) {
-  let d = `M ${points[0].x * w} ${points[0].y * h}`
-  for (let i = 1; i < points.length; i++) d += ` L ${points[i].x * w} ${points[i].y * h}`
+  let d = `M ${points[0].x * w} ${(1 - points[0].y) * h}`
+  for (let i = 1; i < points.length; i++) d += ` L ${points[i].x * w} ${(1 - points[i].y) * h}`
   return d
 }
 
