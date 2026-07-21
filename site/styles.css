@@ -636,6 +636,12 @@ textarea:focus {
   padding: 2px;
   background: var(--surface);
 }
+.anno-width {
+  width: 60px;
+  height: 22px;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
 .draw-layer {
   position: absolute;
   top: 0;

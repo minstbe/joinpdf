@@ -53,6 +53,8 @@ const annoToolbar = document.getElementById("annoToolbar")
 const annoColor = document.getElementById("annoColor")
 const clearPageAnno = document.getElementById("clearPageAnno")
 const clearAllAnno = document.getElementById("clearAllAnno")
+const annoWidth = document.getElementById("annoWidth")
+const fsAnnoWidth = document.getElementById("fsAnnoWidth")
 let splitFileRef = null
 let mergeItems = []
 let draggingIndex = null
@@ -235,7 +237,7 @@ function drawAnnotations(canvas, strokes) {
   for (const s of strokes) {
     ctx.strokeStyle = s.color
     ctx.globalAlpha = s.type === "highlighter" ? 0.45 : 1
-    ctx.lineWidth = s.width / 2
+    ctx.lineWidth = s.width
     ctx.lineCap = "round"
     ctx.lineJoin = "round"
     if (s.points.length >= 2) {
@@ -368,7 +370,7 @@ fsNext.addEventListener("click", () => {
     if (currentTool === "eraser") {
       doErase(activePreviewPage, p, (i) => { redrawFS(i); syncThumbnailAnnotation(i) })
     } else {
-      currentStroke = { type: currentTool, color: currentTool === "highlighter" ? "#ffeb3b" : fsAnnoColor.value, points: [p], width: currentTool === "highlighter" ? 18 : 2 }
+      currentStroke = { type: currentTool, color: currentTool === "highlighter" ? "#ffeb3b" : fsAnnoColor.value, points: [p], width: parseInt(fsAnnoWidth.value) || 2 }
       annotations[activePreviewPage].push(currentStroke)
     }
   })
@@ -414,6 +416,8 @@ document.querySelectorAll("[data-fstool]").forEach(btn => {
 })
 fsAnnoColor.addEventListener("input", () => { annoColor.value = fsAnnoColor.value })
 annoColor.addEventListener("input", () => { fsAnnoColor.value = annoColor.value })
+annoWidth.addEventListener("input", () => { fsAnnoWidth.value = annoWidth.value })
+fsAnnoWidth.addEventListener("input", () => { annoWidth.value = fsAnnoWidth.value })
 fsClearPage.addEventListener("click", () => {
   if (activePreviewPage !== null) {
     delete annotations[activePreviewPage]
@@ -884,7 +888,7 @@ function doErase(pageIdx, p, redrawFn) {
     if (currentTool === "eraser") {
       doErase(activePreviewPage, p, (i) => { redrawPreview(i); syncThumbnailAnnotation(i) })
     } else {
-      currentStroke = { type: currentTool, color: currentTool === "highlighter" ? "#ffeb3b" : annoColor.value, points: [p], width: currentTool === "highlighter" ? 18 : 2 }
+      currentStroke = { type: currentTool, color: currentTool === "highlighter" ? "#ffeb3b" : annoColor.value, points: [p], width: parseInt(annoWidth.value) || 2 }
       annotations[activePreviewPage].push(currentStroke)
     }
   })
