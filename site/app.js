@@ -528,20 +528,27 @@ function redrawPage(pageIdx) {
 
 function flattenAnnotations(pdfPage, pageIdx) {
   const strokes = annotations[pageIdx]
-  console.log("flatten page", pageIdx, "strokes:", strokes ? strokes.length : 0)
-  pdfPage.drawRectangle({ x: 50, y: 50, width: 100, height: 100, color: PDFLib.rgb(1, 0, 0), opacity: 0.3 })
   if (!strokes || strokes.length === 0) return
   const w = pdfPage.getWidth()
   const h = pdfPage.getHeight()
   for (const s of strokes) {
     if (s.points.length < 2) continue
     const color = s.type === "highlighter" ? PDFLib.rgb(1, 0.92, 0.23) : hexToRgb(s.color)
-    const pathData = pointsToSvgPath(s.points, w, h)
-    pdfPage.drawSvgPath(pathData, {
-      borderColor: PDFLib.rgb(1, 0, 0),
-      borderWidth: 4,
-      opacity: 1,
-    })
+    const alpha = s.type === "highlighter" ? 0.45 : 1
+    const lw = s.width * 3
+    for (let i = 1; i < s.points.length; i++) {
+      const x1 = s.points[i - 1].x * w
+      const y1 = (1 - s.points[i - 1].y) * h
+      const x2 = s.points[i].x * w
+      const y2 = (1 - s.points[i].y) * h
+      pdfPage.drawLine({
+        start: { x: x1, y: y1 },
+        end: { x: x2, y: y2 },
+        thickness: lw,
+        color: color,
+        opacity: alpha,
+      })
+    }
   }
 }
 
