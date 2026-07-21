@@ -1,0 +1,14 @@
+<p>When you search for "free PDF tool," most results lead to websites that ask you to upload your file. But what happens after you click upload? This article explains why client-side PDF tools are fundamentally safer — and how to spot the difference.</p>
+<h2>The upload problem</h2>
+<p>Cloud PDF services store your file on their servers — sometimes temporarily, sometimes indefinitely. Even if a site claims to delete your file after processing, there's no way to verify this. Data breaches, employee access, and server logs are all real risks.</p>
+<h2>How client-side tools work</h2>
+<p>Client-side PDF tools use JavaScript libraries like <a href="https://pdf-lib.js.org/">pdf-lib</a> to read, manipulate, and generate PDFs entirely within your browser's memory. The file never leaves your device. Your browser downloads the code once, then runs all operations locally.</p>
+<h2>How to verify a tool is truly client-side</h2>
+<ol>
+  <li><strong>Check the network tab</strong> (F12 in Chrome/Edge). After loading the page, selecting a file should not trigger any upload requests.</li>
+  <li><strong>Turn off your internet</strong> after the page loads. If the tool still works, it's client-side.</li>
+  <li><strong>Look for privacy badges</strong> — but don't trust them blindly. Verify with method 1 or 2 above.</li>
+</ol>
+<h2>Why <a href="https://joinpdf.top/">joinpdf.top</a>?</h2>
+<p>PDF Split & Merge uses <strong>pdf-lib</strong> for PDF manipulation and <strong>pdf.js</strong> for page previews — both running locally in your browser. There is no backend for file processing. The only optional server request is for user feedback, which is unrelated to your documents.</p>
+<p>Try it now: <a href="https://joinpdf.top/">PDF Split & Merge</a> — split and merge PDFs without uploading a single byte.</p>

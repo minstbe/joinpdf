@@ -4,5 +4,23 @@
     "title": "How to Split a PDF (Client-side, Privacy-first)",
     "date": "2026-01-11",
     "description": "Extract pages like 1,1,3-5,7-2 without uploading files."
+  },
+  {
+    "slug": "how-to-merge-pdf",
+    "title": "How to Merge PDFs (Client-side, Privacy-first)",
+    "date": "2026-01-15",
+    "description": "Combine multiple PDF files without uploading. Drag, reorder, and download a merged document."
+  },
+  {
+    "slug": "why-client-side-pdf-tools-are-safer",
+    "title": "Why Client-side PDF Tools Are Safer Than Cloud Services",
+    "date": "2026-02-01",
+    "description": "How browser-based PDF processing protects your data — and how to verify a tool is truly client-side."
+  },
+  {
+    "slug": "5-ways-to-extract-pdf-pages-free",
+    "title": "5 Ways to Extract and Organize PDF Pages (Free & No Upload)",
+    "date": "2026-03-10",
+    "description": "Split by range, select pages visually, merge files, annotate, and do it all offline with zero uploads."
   }
 ]
