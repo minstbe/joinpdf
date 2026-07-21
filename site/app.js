@@ -300,8 +300,6 @@ async function openFullscreen(pageIdx, pos) {
     fsCanvas.height = vp.height
     fsDrawLayer.width = vp.width
     fsDrawLayer.height = vp.height
-    fsDrawLayer.style.width = vp.width + "px"
-    fsDrawLayer.style.height = vp.height + "px"
     await page.render({ canvasContext: fsCanvas.getContext("2d"), viewport: vp }).promise
     redrawFS(pageIdx)
     updateFSNav()
@@ -800,8 +798,6 @@ async function openPreview(pageIdx, pos) {
     previewCanvas.height = vp.height
     previewDrawLayer.width = vp.width
     previewDrawLayer.height = vp.height
-    previewDrawLayer.style.width = vp.width + "px"
-    previewDrawLayer.style.height = vp.height + "px"
     await page.render({ canvasContext: previewCanvas.getContext("2d"), viewport: vp }).promise
     redrawPreview(pageIdx)
   } catch (e) {}
