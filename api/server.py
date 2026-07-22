@@ -7,6 +7,21 @@ from urllib.parse import urlparse, parse_qs
 import os
 
 SITE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "site")
+ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".env")
+
+def get_admin_key():
+    key = os.environ.get("ADMIN_KEY") or ""
+    if key:
+        return key
+    try:
+        with open(ENV_FILE, "r") as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("ADMIN_KEY="):
+                    return line.split("=", 1)[1].strip()
+    except:
+        pass
+    return ""
 MIME_MAP = {
     ".html": "text/html; charset=utf-8",
     ".css": "text/css; charset=utf-8",
@@ -23,12 +38,13 @@ db = sqlite3.connect("feedback.db", check_same_thread=False)
 db.execute("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, content TEXT, created_at INTEGER)")
 db.commit()
 
+ADMIN_KEY = get_admin_key()
+
 def check_auth(handler):
-    admin_key = os.environ.get("ADMIN_KEY") or ""
-    if not admin_key:
+    if not ADMIN_KEY:
         return True
     header_key = handler.headers.get("X-Admin-Key", "")
-    return header_key == admin_key
+    return header_key == ADMIN_KEY
 
 def serve_static(handler, path):
     path = path.lstrip("/")
@@ -132,9 +148,8 @@ class Handler(BaseHTTPRequestHandler):
             except:
                 payload = {}
             password = (payload.get("password") or "").strip()
-            admin_key = os.environ.get("ADMIN_KEY") or ""
-            if admin_key and password == admin_key:
-                body = json.dumps({"token": admin_key}).encode("utf-8")
+            if ADMIN_KEY and password == ADMIN_KEY:
+                body = json.dumps({"token": ADMIN_KEY}).encode("utf-8")
                 self.send_response(200)
                 self.cors()
                 self.send_header("Content-Type", "application/json")
