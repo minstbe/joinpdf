@@ -9,7 +9,6 @@ WorkingDirectory=/path/to/pdf_ms
 ExecStart=/path/to/venv/bin/python api/server.py
 Restart=always
 RestartSec=5
-Environment=ADMIN_KEY=your_secure_key
 
 [Install]
 WantedBy=multi-user.target
