@@ -80,12 +80,7 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
     def do_GET(self):
         parsed = urlparse(self.path)
-        if parsed.path.startswith("/api/messages"):
-            if not check_auth(self):
-                self.send_response(401)
-                self.cors()
-                self.end_headers()
-                return
+        if parsed.path.startswith("/api/messages/public"):
             rows = db.execute("SELECT id,name,content,created_at FROM messages ORDER BY id DESC LIMIT 100").fetchall()
             data = [{"id": r[0], "name": r[1], "content": r[2], "createdAt": r[3]} for r in rows]
             body = json.dumps(data).encode("utf-8")
@@ -96,7 +91,12 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
             return
-        if parsed.path.startswith("/api/messages/public"):
+        if parsed.path.startswith("/api/messages"):
+            if not check_auth(self):
+                self.send_response(401)
+                self.cors()
+                self.end_headers()
+                return
             rows = db.execute("SELECT id,name,content,created_at FROM messages ORDER BY id DESC LIMIT 100").fetchall()
             data = [{"id": r[0], "name": r[1], "content": r[2], "createdAt": r[3]} for r in rows]
             body = json.dumps(data).encode("utf-8")
