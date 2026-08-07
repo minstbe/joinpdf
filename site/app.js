@@ -66,6 +66,9 @@ let currentTool = "pointer"
 let isDrawing = false
 let currentStroke = null
 let drawingPageIdx = null
+let activePreviewPage = null
+let draggingTextIdx = null
+let textClickTime = 0
 const API_BASE = (location.hostname === "localhost" || location.hostname === "127.0.0.1")
   ? (location.port === "5600" ? "" : "http://localhost:5600")
   : ""
@@ -352,6 +355,67 @@ fsPrev.addEventListener("click", () => {
 fsNext.addEventListener("click", () => {
   if (previewPosInSelection < selectedIndices.length - 1) openFullscreen(selectedIndices[previewPosInSelection + 1], previewPosInSelection + 1)
 })
+
+function findTextNear(pageIdx, x, y) {
+  const strokes = annotations[pageIdx]
+  if (!strokes) return -1
+  for (let i = strokes.length - 1; i >= 0; i--) {
+    if (strokes[i].type === "text" && Math.hypot(strokes[i].x - x, strokes[i].y - y) < 0.06) return i
+  }
+  return -1
+}
+
+{ let draggingText = false, dragTargetIdx = -1, dragTargetPage = -1
+  function onTextDragPointerDown(target, pageIdx, e) {
+    if (currentTool !== "pointer" || activePreviewPage === null) return
+    const r = target.getBoundingClientRect()
+    const p = { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }
+    const idx = findTextNear(pageIdx, p.x, p.y)
+    if (idx < 0) return
+    const now = Date.now()
+    if (now - textClickTime < 400 && dragTargetIdx === idx) {
+      const text = prompt("Edit text:", annotations[pageIdx][idx].text)
+      if (text && text.trim()) {
+        annotations[pageIdx][idx].text = text.trim()
+        if (target === previewDrawLayer) { redrawPreview(pageIdx) } else { redrawFS(pageIdx) }
+        syncThumbnailAnnotation(pageIdx)
+      }
+      textClickTime = 0
+      return
+    }
+    textClickTime = now
+    draggingText = true; dragTargetIdx = idx; dragTargetPage = pageIdx
+    target.setPointerCapture(e.pointerId)
+    e.preventDefault()
+  }
+  document.addEventListener("pointermove", (e) => {
+    if (!draggingText) return
+    const target = dragTargetPage === activePreviewPage ? (fullscreenOverlay.classList.contains("hidden") ? previewDrawLayer : fsDrawLayer) : null
+    if (!target) return
+    const r = target.getBoundingClientRect()
+    const p = { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }
+    const strokes = annotations[dragTargetPage]
+    if (strokes && strokes[dragTargetIdx] && strokes[dragTargetIdx].type === "text") {
+      strokes[dragTargetIdx].x = p.x
+      strokes[dragTargetIdx].y = p.y
+      if (target === previewDrawLayer) { redrawPreview(dragTargetPage) } else { redrawFS(dragTargetPage) }
+    }
+  })
+  document.addEventListener("pointerup", () => {
+    if (!draggingText) return
+    draggingText = false
+    syncThumbnailAnnotation(dragTargetPage)
+    try { previewDrawLayer.releasePointerCapture(1) } catch (_) {}
+    try { fsDrawLayer.releasePointerCapture(1) } catch (_) {}
+  })
+
+  previewDrawLayer.addEventListener("pointerdown", (e) => {
+    onTextDragPointerDown(previewDrawLayer, activePreviewPage, e)
+  }, true)
+  fsDrawLayer.addEventListener("pointerdown", (e) => {
+    onTextDragPointerDown(fsDrawLayer, activePreviewPage, e)
+  }, true)
+}
 
 { let drawing = false
   fsDrawLayer.addEventListener("pointerdown", (e) => {
