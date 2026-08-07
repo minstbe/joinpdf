@@ -880,9 +880,6 @@ function doErase(pageIdx, p, redrawFn) {
     }
   }
 }
-    }
-  }
-}
 
 { 
   let drawing = false
