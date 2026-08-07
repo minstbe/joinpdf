@@ -234,17 +234,27 @@ async function renderThumbnails(file) {
 function drawAnnotations(canvas, strokes) {
   const ctx = canvas.getContext("2d")
   ctx.clearRect(0, 0, canvas.width, canvas.height)
+  renderStrokes(ctx, strokes, canvas.width, canvas.height, 1)
+}
+
+function renderStrokes(ctx, strokes, w, h, scale) {
   for (const s of strokes) {
-    ctx.strokeStyle = s.color
-    ctx.globalAlpha = s.type === "highlighter" ? 0.45 : 1
-    ctx.lineWidth = s.width
-    ctx.lineCap = "round"
-    ctx.lineJoin = "round"
-    if (s.points.length >= 2) {
-      ctx.beginPath()
-      ctx.moveTo(s.points[0].x * canvas.width, s.points[0].y * canvas.height)
-      for (let i = 1; i < s.points.length; i++) ctx.lineTo(s.points[i].x * canvas.width, s.points[i].y * canvas.height)
-      ctx.stroke()
+    if (s.type === "text") {
+      ctx.fillStyle = s.color
+      ctx.font = (s.fontSize * scale) + "px sans-serif"
+      ctx.fillText(s.text, s.x * w, s.y * h)
+    } else {
+      ctx.strokeStyle = s.color
+      ctx.globalAlpha = s.type === "highlighter" ? 0.45 : 1
+      ctx.lineWidth = s.width * scale
+      ctx.lineCap = "round"
+      ctx.lineJoin = "round"
+      if (s.points.length >= 2) {
+        ctx.beginPath()
+        ctx.moveTo(s.points[0].x * w, s.points[0].y * h)
+        for (let i = 1; i < s.points.length; i++) ctx.lineTo(s.points[i].x * w, s.points[i].y * h)
+        ctx.stroke()
+      }
     }
   }
   ctx.globalAlpha = 1
@@ -319,21 +329,7 @@ function redrawFS(pageIdx) {
   const ctx = fsDrawLayer.getContext("2d")
   ctx.clearRect(0, 0, fsDrawLayer.width, fsDrawLayer.height)
   const strokes = annotations[pageIdx] || []
-  const w = fsDrawLayer.width, h = fsDrawLayer.height
-  for (const s of strokes) {
-    ctx.strokeStyle = s.color
-    ctx.globalAlpha = s.type === "highlighter" ? 0.45 : 1
-    ctx.lineWidth = s.width * 3
-    ctx.lineCap = "round"
-    ctx.lineJoin = "round"
-    if (s.points.length >= 2) {
-      ctx.beginPath()
-      ctx.moveTo(s.points[0].x * w, s.points[0].y * h)
-      for (let i = 1; i < s.points.length; i++) ctx.lineTo(s.points[i].x * w, s.points[i].y * h)
-      ctx.stroke()
-    }
-  }
-  ctx.globalAlpha = 1
+  renderStrokes(ctx, strokes, fsDrawLayer.width, fsDrawLayer.height, 3)
 }
 function closeFullscreen() {
   fullscreenOverlay.classList.add("hidden")
@@ -369,6 +365,13 @@ fsNext.addEventListener("click", () => {
     const p = { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }
     if (currentTool === "eraser") {
       doErase(activePreviewPage, p, (i) => { redrawFS(i); syncThumbnailAnnotation(i) })
+    } else if (currentTool === "text") {
+      const text = prompt("Enter text:")
+      if (text && text.trim()) {
+        annotations[activePreviewPage].push({ type: "text", text: text.trim(), x: p.x, y: p.y, fontSize: parseInt(fsAnnoWidth.value) * 5 || 16, color: fsAnnoColor.value })
+        redrawFS(activePreviewPage)
+        syncThumbnailAnnotation(activePreviewPage)
+      }
     } else {
       currentStroke = { type: currentTool, color: currentTool === "highlighter" ? "#ffeb3b" : fsAnnoColor.value, points: [p], width: parseInt(fsAnnoWidth.value) || 2 }
       annotations[activePreviewPage].push(currentStroke)
@@ -536,22 +539,31 @@ function flattenAnnotations(pdfPage, pageIdx) {
   const w = pdfPage.getWidth()
   const h = pdfPage.getHeight()
   for (const s of strokes) {
-    if (s.points.length < 2) continue
-    const color = s.type === "highlighter" ? PDFLib.rgb(1, 0.92, 0.23) : hexToRgb(s.color)
-    const alpha = s.type === "highlighter" ? 0.45 : 1
-    const lw = s.width * 3
-    for (let i = 1; i < s.points.length; i++) {
-      const x1 = s.points[i - 1].x * w
-      const y1 = (1 - s.points[i - 1].y) * h
-      const x2 = s.points[i].x * w
-      const y2 = (1 - s.points[i].y) * h
-      pdfPage.drawLine({
-        start: { x: x1, y: y1 },
-        end: { x: x2, y: y2 },
-        thickness: lw,
+    if (s.type === "text") {
+      const color = hexToRgb(s.color)
+      pdfPage.drawText(s.text, {
+        x: s.x * w, y: (1 - s.y) * h,
+        size: s.fontSize * 2,
         color: color,
-        opacity: alpha,
       })
+    } else {
+      if (s.points.length < 2) continue
+      const color = s.type === "highlighter" ? PDFLib.rgb(1, 0.92, 0.23) : hexToRgb(s.color)
+      const alpha = s.type === "highlighter" ? 0.45 : 1
+      const lw = s.width * 3
+      for (let i = 1; i < s.points.length; i++) {
+        const x1 = s.points[i - 1].x * w
+        const y1 = (1 - s.points[i - 1].y) * h
+        const x2 = s.points[i].x * w
+        const y2 = (1 - s.points[i].y) * h
+        pdfPage.drawLine({
+          start: { x: x1, y: y1 },
+          end: { x: x2, y: y2 },
+          thickness: lw,
+          color: color,
+          opacity: alpha,
+        })
+      }
     }
   }
 }
@@ -838,21 +850,7 @@ function redrawPreview(pageIdx) {
   const ctx = previewDrawLayer.getContext("2d")
   ctx.clearRect(0, 0, previewDrawLayer.width, previewDrawLayer.height)
   const strokes = annotations[pageIdx] || []
-  const w = previewDrawLayer.width, h = previewDrawLayer.height
-  for (const s of strokes) {
-    ctx.strokeStyle = s.color
-    ctx.globalAlpha = s.type === "highlighter" ? 0.45 : 1
-    ctx.lineWidth = s.width * 3
-    ctx.lineCap = "round"
-    ctx.lineJoin = "round"
-    if (s.points.length >= 2) {
-      ctx.beginPath()
-      ctx.moveTo(s.points[0].x * w, s.points[0].y * h)
-      for (let i = 1; i < s.points.length; i++) ctx.lineTo(s.points[i].x * w, s.points[i].y * h)
-      ctx.stroke()
-    }
-  }
-  ctx.globalAlpha = 1
+  renderStrokes(ctx, strokes, previewDrawLayer.width, previewDrawLayer.height, 3)
 }
 closePreview.addEventListener("click", () => {
   previewArea.classList.add("hidden")
@@ -864,12 +862,24 @@ function doErase(pageIdx, p, redrawFn) {
   const strokes = annotations[pageIdx]
   if (!strokes) return
   for (let i = strokes.length - 1; i >= 0; i--) {
-    for (const pt of strokes[i].points) {
-      if (Math.hypot(pt.x - p.x, pt.y - p.y) < 18) {
+    const s = strokes[i]
+    if (s.type === "text") {
+      if (Math.hypot(s.x - p.x, s.y - p.y) < 0.04) {
         strokes.splice(i, 1)
         redrawFn(pageIdx)
         return
       }
+    } else {
+      for (const pt of s.points) {
+        if (Math.hypot(pt.x - p.x, pt.y - p.y) < 0.03) {
+          strokes.splice(i, 1)
+          redrawFn(pageIdx)
+          return
+        }
+      }
+    }
+  }
+}
     }
   }
 }
@@ -887,6 +897,13 @@ function doErase(pageIdx, p, redrawFn) {
     const p = { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }
     if (currentTool === "eraser") {
       doErase(activePreviewPage, p, (i) => { redrawPreview(i); syncThumbnailAnnotation(i) })
+    } else if (currentTool === "text") {
+      const text = prompt("Enter text:")
+      if (text && text.trim()) {
+        annotations[activePreviewPage].push({ type: "text", text: text.trim(), x: p.x, y: p.y, fontSize: parseInt(annoWidth.value) * 5 || 16, color: annoColor.value })
+        redrawPreview(activePreviewPage)
+        syncThumbnailAnnotation(activePreviewPage)
+      }
     } else {
       currentStroke = { type: currentTool, color: currentTool === "highlighter" ? "#ffeb3b" : annoColor.value, points: [p], width: parseInt(annoWidth.value) || 2 }
       annotations[activePreviewPage].push(currentStroke)
