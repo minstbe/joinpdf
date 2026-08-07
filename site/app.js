@@ -376,7 +376,11 @@ function findTextNear(pageIdx, x, y) {
     if (now - textClickTime < 400 && dragTargetIdx === idx) {
       const text = prompt("Edit text:", annotations[pageIdx][idx].text)
       if (text && text.trim()) {
-        annotations[pageIdx][idx].text = text.trim()
+        const item = annotations[pageIdx][idx]
+        item.text = text.trim()
+        const isFS = !fullscreenOverlay.classList.contains("hidden")
+        item.color = isFS ? fsAnnoColor.value : annoColor.value
+        item.fontSize = (parseInt(isFS ? fsAnnoWidth.value : annoWidth.value) || 2) * 5
         if (target === previewDrawLayer) { redrawPreview(pageIdx) } else { redrawFS(pageIdx) }
         syncThumbnailAnnotation(pageIdx)
       }
