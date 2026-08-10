@@ -605,20 +605,24 @@ function redrawPage(pageIdx) {
   ctx.globalAlpha = 1
 }
 
-function flattenAnnotations(pdfPage, pageIdx, font) {
+function flattenAnnotations(pdfPage, pageIdx, font, pdfDoc) {
   const strokes = annotations[pageIdx]
   if (!strokes || strokes.length === 0) return
   const w = pdfPage.getWidth()
   const h = pdfPage.getHeight()
+  const isAscii = (s) => /^[\x00-\x7F]*$/.test(s)
   for (const s of strokes) {
     if (s.type === "text") {
+      if (!font) continue
       const color = hexToRgb(s.color)
-      pdfPage.drawText(s.text, {
-        x: s.x * w, y: (1 - s.y) * h,
-        size: s.fontSize * 2,
-        font: font,
-        color: color,
-      })
+      try {
+        pdfPage.drawText(s.text, {
+          x: s.x * w, y: (1 - s.y) * h,
+          size: s.fontSize * 2,
+          font: font,
+          color: color,
+        })
+      } catch (_) {}
     } else {
       if (s.points.length < 2) continue
       const color = s.type === "highlighter" ? PDFLib.rgb(1, 0.92, 0.23) : hexToRgb(s.color)
@@ -1099,7 +1103,8 @@ splitBtn.addEventListener("click", async () => {
       return
     }
     const out = await PDFLib.PDFDocument.create()
-    const font = await out.embedFont(PDFLib.StandardFonts.Helvetica)
+    let font = null
+    try { font = await out.embedFont(PDFLib.StandardFonts.Helvetica) } catch (_) {}
     const pages = await out.copyPages(src, indices)
     for (let i = 0; i < pages.length; i++) {
       const p = pages[i]
