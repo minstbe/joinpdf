@@ -620,9 +620,10 @@ async function flattenAnnotations(pdfPage, pageIdx, font, pdfDoc) {
       ctx.fillStyle = s.color
       ctx.font = size + "px sans-serif"
       ctx.fillText(s.text, 4, size)
-      const pngBytes = Uint8Array.from(atob(canvas.toDataURL("image/png").split(",")[1]), c => c.charCodeAt(0))
+      const blob = await new Promise(r => canvas.toBlob(r, "image/png"))
+      const buf = await blob.arrayBuffer()
       try {
-        const img = await pdfDoc.embedPng(pngBytes)
+        const img = await pdfDoc.embedPng(buf)
         pdfPage.drawImage(img, { x: s.x * w, y: (1 - s.y) * h - size * 0.8, width: canvas.width * 0.5, height: canvas.height * 0.5 })
       } catch (_) {}
     } else {
