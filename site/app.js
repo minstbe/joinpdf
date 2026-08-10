@@ -360,7 +360,11 @@ function findTextNear(pageIdx, x, y) {
   const strokes = annotations[pageIdx]
   if (!strokes) return -1
   for (let i = strokes.length - 1; i >= 0; i--) {
-    if (strokes[i].type === "text" && Math.hypot(strokes[i].x - x, strokes[i].y - y) < 0.06) return i
+    const s = strokes[i]
+    if (s.type !== "text") continue
+    const tw = s.text.length * s.fontSize * 0.004
+    const th = s.fontSize * 0.005
+    if (x >= s.x - 0.01 && x <= s.x + tw + 0.01 && y >= s.y - th - 0.005 && y <= s.y + 0.005) return i
   }
   return -1
 }
@@ -932,7 +936,9 @@ function doErase(pageIdx, p, redrawFn) {
   for (let i = strokes.length - 1; i >= 0; i--) {
     const s = strokes[i]
     if (s.type === "text") {
-      if (Math.hypot(s.x - p.x, s.y - p.y) < 0.04) {
+      const tw = s.text.length * s.fontSize * 0.004
+      const th = s.fontSize * 0.005
+      if (x >= s.x - 0.01 && x <= s.x + tw + 0.01 && y >= s.y - th - 0.005 && y <= s.y + 0.005) {
         strokes.splice(i, 1)
         redrawFn(pageIdx)
         return
