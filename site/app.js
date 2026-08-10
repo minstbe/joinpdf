@@ -605,7 +605,7 @@ function redrawPage(pageIdx) {
   ctx.globalAlpha = 1
 }
 
-function flattenAnnotations(pdfPage, pageIdx) {
+function flattenAnnotations(pdfPage, pageIdx, font) {
   const strokes = annotations[pageIdx]
   if (!strokes || strokes.length === 0) return
   const w = pdfPage.getWidth()
@@ -616,6 +616,7 @@ function flattenAnnotations(pdfPage, pageIdx) {
       pdfPage.drawText(s.text, {
         x: s.x * w, y: (1 - s.y) * h,
         size: s.fontSize * 2,
+        font: font,
         color: color,
       })
     } else {
@@ -1098,10 +1099,11 @@ splitBtn.addEventListener("click", async () => {
       return
     }
     const out = await PDFLib.PDFDocument.create()
+    const font = await out.embedFont(PDFLib.StandardFonts.Helvetica)
     const pages = await out.copyPages(src, indices)
     for (let i = 0; i < pages.length; i++) {
       const p = pages[i]
-      flattenAnnotations(p, indices[i])
+      flattenAnnotations(p, indices[i], font)
       out.addPage(p)
     }
     const bytes = await out.save()
