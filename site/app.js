@@ -1987,3 +1987,506 @@ protCard.addEventListener("drop", (e) => {
   protFileInput.dispatchEvent(new Event("change"))
 })
 
+// ===== Rotate PDF =====
+const rotFileInput = document.getElementById("rotFile")
+const rotArea = document.getElementById("rotArea")
+const rotGrid = document.getElementById("rotGrid")
+const rotBtn = document.getElementById("rotBtn")
+const rotStatus = document.getElementById("rotStatus")
+const clearRot = document.getElementById("clearRot")
+const rotCard = document.getElementById("rotCard")
+const rotAllLeft = document.getElementById("rotAllLeft")
+const rotAllRight = document.getElementById("rotAllRight")
+const rotReset = document.getElementById("rotReset")
+let rotFileRef = null
+let rotPages = []
+
+function rotBadgeText(d) {
+  return d === 0 ? "" : (((d % 360) + 360) % 360) + "\u00B0"
+}
+function renderRotGrid() {
+  rotGrid.innerHTML = ""
+  rotPages.forEach((p, i) => {
+    const item = document.createElement("div")
+    item.className = "page-item"
+    const box = document.createElement("div")
+    box.className = "page-box"
+    p.canvas.style.transform = "rotate(" + p.delta + "deg)"
+    box.appendChild(p.canvas)
+    const badge = document.createElement("span")
+    badge.className = "rot-badge" + (p.delta === 0 ? " hidden" : "")
+    badge.textContent = rotBadgeText(p.delta)
+    const btns = document.createElement("div")
+    btns.className = "page-rot-btns"
+    const left = document.createElement("button")
+    left.className = "tool-btn"
+    left.textContent = "\u27F2"
+    left.title = "Rotate left 90\u00B0"
+    left.addEventListener("click", () => { p.delta -= 90; renderRotGrid() })
+    const right = document.createElement("button")
+    right.className = "tool-btn"
+    right.textContent = "\u27F3"
+    right.title = "Rotate right 90\u00B0"
+    right.addEventListener("click", () => { p.delta += 90; renderRotGrid() })
+    btns.appendChild(left)
+    btns.appendChild(right)
+    const label = document.createElement("div")
+    label.className = "page-num"
+    label.textContent = "Page " + (i + 1)
+    item.appendChild(badge)
+    item.appendChild(box)
+    item.appendChild(btns)
+    item.appendChild(label)
+    rotGrid.appendChild(item)
+  })
+}
+async function loadRotPages() {
+  rotPages = []
+  if (!rotFileRef) {
+    rotArea.classList.add("hidden")
+    return
+  }
+  rotGrid.innerHTML = "<div style='text-align:center;padding:20px;color:var(--muted)'>Loading pages\u2026</div>"
+  rotArea.classList.remove("hidden")
+  try {
+    const buffer = await rotFileRef.arrayBuffer()
+    const pdf = await pdfjsLib.getDocument({ data: buffer }).promise
+    rotGrid.innerHTML = ""
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i)
+      const vp = page.getViewport({ scale: 0.35 })
+      const canvas = document.createElement("canvas")
+      canvas.width = vp.width
+      canvas.height = vp.height
+      await page.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise
+      rotPages.push({ canvas, delta: 0 })
+    }
+    renderRotGrid()
+  } catch (e) {
+    rotArea.classList.add("hidden")
+    if (e && e.name === "PasswordException") {
+      setStatus(rotStatus, "This PDF is password-protected. Remove the password first with Protect PDF.", "error")
+    } else {
+      setStatus(rotStatus, "Failed to load file.", "error")
+    }
+  }
+}
+rotFileInput.addEventListener("change", (e) => {
+  rotFileRef = e.target.files && e.target.files[0] ? e.target.files[0] : null
+  setStatus(rotStatus, "")
+  if (rotFileRef) clearRot.classList.remove("hidden")
+  else clearRot.classList.add("hidden")
+  loadRotPages()
+})
+clearRot.addEventListener("click", (e) => {
+  e.preventDefault()
+  rotFileInput.value = ""
+  rotFileRef = null
+  clearRot.classList.add("hidden")
+  setStatus(rotStatus, "")
+  loadRotPages()
+})
+rotAllLeft.addEventListener("click", () => { rotPages.forEach(p => p.delta -= 90); renderRotGrid() })
+rotAllRight.addEventListener("click", () => { rotPages.forEach(p => p.delta += 90); renderRotGrid() })
+rotReset.addEventListener("click", () => { rotPages.forEach(p => p.delta = 0); renderRotGrid() })
+rotBtn.addEventListener("click", async () => {
+  if (!rotFileRef) {
+    setStatus(rotStatus, "Please select a PDF.", "error")
+    track("rot_missing_file")
+    return
+  }
+  if (rotFileRef.size > MAX_FILE_SIZE) {
+    setStatus(rotStatus, "File is too large (max 100 MB).", "error")
+    return
+  }
+  setBusy(rotBtn, true, "Save PDF", "Processing...")
+  setStatus(rotStatus, "")
+  try {
+    track("rot_start")
+    const buffer = await rotFileRef.arrayBuffer()
+    const doc = await PDFLib.PDFDocument.load(buffer)
+    const pages = doc.getPages()
+    let changed = 0
+    pages.forEach((p, i) => {
+      const d = rotPages[i] ? rotPages[i].delta : 0
+      if (d !== 0) {
+        p.setRotation(PDFLib.degrees(p.getRotation().angle + d))
+        changed++
+      }
+    })
+    const bytes = await doc.save()
+    const base = rotFileRef.name.replace(/\.pdf$/i, "")
+    downloadBytes(bytes, base + "_rotated.pdf")
+    setStatus(rotStatus, changed === 0 ? "No rotation changes to save." : "Done. " + changed + " page(s) rotated.", changed === 0 ? "" : "success")
+    track("rot_success", { changed })
+  } catch (err) {
+    console.error("rotate error:", err)
+    if (String(err.message || "").includes("encrypted")) {
+      setStatus(rotStatus, "This PDF is password-protected. Remove the password first with Protect PDF.", "error")
+    } else {
+      setStatus(rotStatus, "Failed to process file.", "error")
+    }
+    track("rot_error")
+  } finally {
+    setBusy(rotBtn, false, "Save PDF", "Processing...")
+  }
+})
+rotCard.addEventListener("dragover", (e) => handleDragOver(rotCard, e))
+rotCard.addEventListener("dragenter", (e) => handleDragOver(rotCard, e))
+rotCard.addEventListener("dragleave", (e) => handleDragLeave(rotCard, e))
+rotCard.addEventListener("drop", (e) => {
+  e.preventDefault()
+  e.stopPropagation()
+  rotCard.classList.remove("drag-over")
+  const files = Array.from(e.dataTransfer.files || []).filter(f => f.type === "application/pdf" || f.name.endsWith(".pdf"))
+  if (files.length === 0) return
+  const dt = new DataTransfer()
+  dt.items.add(files[0])
+  rotFileInput.files = dt.files
+  rotFileInput.dispatchEvent(new Event("change"))
+})
+
+// ===== Organize Pages =====
+const orgFileInput = document.getElementById("orgFile")
+const orgArea = document.getElementById("orgArea")
+const orgGrid = document.getElementById("orgGrid")
+const orgCount = document.getElementById("orgCount")
+const orgBtn = document.getElementById("orgBtn")
+const orgStatus = document.getElementById("orgStatus")
+const clearOrg = document.getElementById("clearOrg")
+const orgCard = document.getElementById("orgCard")
+const orgReset = document.getElementById("orgReset")
+let orgFileRef = null
+let orgItems = []
+let orgTotal = 0
+let orgDragIdx = null
+
+function updateOrgCount() {
+  orgCount.textContent = orgItems.length + " of " + orgTotal + " pages kept"
+}
+function renderOrgGrid() {
+  orgGrid.innerHTML = ""
+  orgItems.forEach((it, i) => {
+    const item = document.createElement("div")
+    item.className = "page-item"
+    item.draggable = true
+    item.dataset.index = String(i)
+    const del = document.createElement("button")
+    del.className = "page-del"
+    del.textContent = "\u00D7"
+    del.title = "Delete this page"
+    del.addEventListener("click", () => {
+      const idx = parseInt(item.dataset.index, 10)
+      orgItems.splice(idx, 1)
+      renderOrgGrid()
+      updateOrgCount()
+    })
+    const box = document.createElement("div")
+    box.className = "page-box"
+    box.appendChild(it.canvas)
+    const label = document.createElement("div")
+    label.className = "page-num"
+    label.textContent = "Page " + (it.orig + 1)
+    item.appendChild(del)
+    item.appendChild(box)
+    item.appendChild(label)
+    item.addEventListener("dragstart", (e) => {
+      orgDragIdx = parseInt(item.dataset.index, 10)
+      item.classList.add("dragging")
+      e.dataTransfer.effectAllowed = "move"
+    })
+    item.addEventListener("dragend", () => {
+      orgDragIdx = null
+      item.classList.remove("dragging")
+    })
+    item.addEventListener("dragover", (e) => {
+      e.preventDefault()
+      e.dataTransfer.dropEffect = "move"
+    })
+    item.addEventListener("drop", (e) => {
+      e.preventDefault()
+      const target = parseInt(item.dataset.index, 10)
+      if (orgDragIdx !== null && orgDragIdx !== target) {
+        const [moved] = orgItems.splice(orgDragIdx, 1)
+        orgItems.splice(target, 0, moved)
+        renderOrgGrid()
+      }
+    })
+    orgGrid.appendChild(item)
+  })
+  updateOrgCount()
+}
+async function loadOrgPages() {
+  orgItems = []
+  orgTotal = 0
+  if (!orgFileRef) {
+    orgArea.classList.add("hidden")
+    return
+  }
+  orgGrid.innerHTML = "<div style='text-align:center;padding:20px;color:var(--muted)'>Loading pages\u2026</div>"
+  orgArea.classList.remove("hidden")
+  try {
+    const buffer = await orgFileRef.arrayBuffer()
+    const pdf = await pdfjsLib.getDocument({ data: buffer }).promise
+    orgGrid.innerHTML = ""
+    orgTotal = pdf.numPages
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i)
+      const vp = page.getViewport({ scale: 0.35 })
+      const canvas = document.createElement("canvas")
+      canvas.width = vp.width
+      canvas.height = vp.height
+      await page.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise
+      orgItems.push({ orig: i - 1, canvas })
+    }
+    renderOrgGrid()
+  } catch (e) {
+    orgArea.classList.add("hidden")
+    if (e && e.name === "PasswordException") {
+      setStatus(orgStatus, "This PDF is password-protected. Remove the password first with Protect PDF.", "error")
+    } else {
+      setStatus(orgStatus, "Failed to load file.", "error")
+    }
+  }
+}
+orgFileInput.addEventListener("change", (e) => {
+  orgFileRef = e.target.files && e.target.files[0] ? e.target.files[0] : null
+  setStatus(orgStatus, "")
+  if (orgFileRef) clearOrg.classList.remove("hidden")
+  else clearOrg.classList.add("hidden")
+  loadOrgPages()
+})
+clearOrg.addEventListener("click", (e) => {
+  e.preventDefault()
+  orgFileInput.value = ""
+  orgFileRef = null
+  clearOrg.classList.add("hidden")
+  setStatus(orgStatus, "")
+  loadOrgPages()
+})
+orgReset.addEventListener("click", () => {
+  orgItems.sort((a, b) => a.orig - b.orig)
+  renderOrgGrid()
+})
+orgBtn.addEventListener("click", async () => {
+  if (!orgFileRef) {
+    setStatus(orgStatus, "Please select a PDF.", "error")
+    track("org_missing_file")
+    return
+  }
+  if (orgItems.length === 0) {
+    setStatus(orgStatus, "No pages left. Reset order to restore pages.", "error")
+    return
+  }
+  if (orgFileRef.size > MAX_FILE_SIZE) {
+    setStatus(orgStatus, "File is too large (max 100 MB).", "error")
+    return
+  }
+  setBusy(orgBtn, true, "Save PDF", "Processing...")
+  setStatus(orgStatus, "")
+  try {
+    track("org_start", { kept: orgItems.length, total: orgTotal })
+    const buffer = await orgFileRef.arrayBuffer()
+    const src = await PDFLib.PDFDocument.load(buffer)
+    const out = await PDFLib.PDFDocument.create()
+    const pages = await out.copyPages(src, orgItems.map(it => it.orig))
+    for (const p of pages) out.addPage(p)
+    const bytes = await out.save()
+    const base = orgFileRef.name.replace(/\.pdf$/i, "")
+    downloadBytes(bytes, base + "_organized.pdf")
+    setStatus(orgStatus, "Done. " + orgItems.length + " of " + orgTotal + " pages saved.", "success")
+    track("org_success", { kept: orgItems.length })
+  } catch (err) {
+    console.error("organize error:", err)
+    if (String(err.message || "").includes("encrypted")) {
+      setStatus(orgStatus, "This PDF is password-protected. Remove the password first with Protect PDF.", "error")
+    } else {
+      setStatus(orgStatus, "Failed to process file.", "error")
+    }
+    track("org_error")
+  } finally {
+    setBusy(orgBtn, false, "Save PDF", "Processing...")
+  }
+})
+orgCard.addEventListener("dragover", (e) => handleDragOver(orgCard, e))
+orgCard.addEventListener("dragenter", (e) => handleDragOver(orgCard, e))
+orgCard.addEventListener("dragleave", (e) => handleDragLeave(orgCard, e))
+orgCard.addEventListener("drop", (e) => {
+  e.preventDefault()
+  e.stopPropagation()
+  orgCard.classList.remove("drag-over")
+  const files = Array.from(e.dataTransfer.files || []).filter(f => f.type === "application/pdf" || f.name.endsWith(".pdf"))
+  if (files.length === 0) return
+  const dt = new DataTransfer()
+  dt.items.add(files[0])
+  orgFileInput.files = dt.files
+  orgFileInput.dispatchEvent(new Event("change"))
+})
+
+// ===== Add Page Numbers =====
+const pnFileInput = document.getElementById("pnFile")
+const pnControls = document.getElementById("pnControls")
+const pnPosition = document.getElementById("pnPosition")
+const pnFormat = document.getElementById("pnFormat")
+const pnStart = document.getElementById("pnStart")
+const pnSize = document.getElementById("pnSize")
+const pnSizeVal = document.getElementById("pnSizeVal")
+const pnMargin = document.getElementById("pnMargin")
+const pnMarginVal = document.getElementById("pnMarginVal")
+const pnPreviewWrap = document.getElementById("pnPreviewWrap")
+const pnPreviewCanvas = document.getElementById("pnPreview")
+const pnBtn = document.getElementById("pnBtn")
+const pnStatus = document.getElementById("pnStatus")
+const clearPn = document.getElementById("clearPn")
+const pnCard = document.getElementById("pnCard")
+let pnFileRef = null
+let pnBaseCanvas = null
+let pnTotal = 0
+
+function pnLabel(n) {
+  const fmt = pnFormat.value
+  if (fmt === "n-of-total") return n + " / " + pnTotal
+  if (fmt === "page-n") return "Page " + n
+  if (fmt === "page-n-of-total") return "Page " + n + " of " + pnTotal
+  return String(n)
+}
+function drawPnPreview() {
+  if (!pnBaseCanvas) return
+  pnPreviewCanvas.width = pnBaseCanvas.width
+  pnPreviewCanvas.height = pnBaseCanvas.height
+  const ctx = pnPreviewCanvas.getContext("2d")
+  ctx.drawImage(pnBaseCanvas, 0, 0)
+  const start = Math.max(1, parseInt(pnStart.value, 10) || 1)
+  const text = pnLabel(start)
+  const sizePt = parseInt(pnSize.value, 10) || 11
+  const marginPt = parseInt(pnMargin.value, 10) || 24
+  const scale = pnBaseCanvas.width / pnBaseCanvas._pageW
+  const fontPx = sizePt * scale
+  const margin = marginPt * scale
+  const pos = pnPosition.value
+  ctx.font = fontPx + "px Helvetica, Arial, sans-serif"
+  ctx.fillStyle = "#111111"
+  ctx.textBaseline = "alphabetic"
+  const tw = ctx.measureText(text).width
+  const x = pos.endsWith("left") ? margin : pos.endsWith("right") ? pnPreviewCanvas.width - margin - tw : (pnPreviewCanvas.width - tw) / 2
+  const y = pos.startsWith("bottom") ? pnPreviewCanvas.height - margin : margin + fontPx * 0.78
+  ctx.fillText(text, x, y)
+}
+async function loadPnPreview() {
+  pnBaseCanvas = null
+  pnTotal = 0
+  if (!pnFileRef) {
+    pnControls.classList.add("hidden")
+    return
+  }
+  try {
+    const buffer = await pnFileRef.arrayBuffer()
+    const pdf = await pdfjsLib.getDocument({ data: buffer }).promise
+    pnTotal = pdf.numPages
+    const page = await pdf.getPage(1)
+    const vp0 = page.getViewport({ scale: 1 })
+    const scale = Math.min(460 / vp0.width, 360 / vp0.height, 1.5)
+    const vp = page.getViewport({ scale })
+    const cv = document.createElement("canvas")
+    cv.width = vp.width
+    cv.height = vp.height
+    cv._pageW = vp0.width
+    await page.render({ canvasContext: cv.getContext("2d"), viewport: vp }).promise
+    pnBaseCanvas = cv
+    pnControls.classList.remove("hidden")
+    drawPnPreview()
+  } catch (e) {
+    pnControls.classList.add("hidden")
+    if (e && e.name === "PasswordException") {
+      setStatus(pnStatus, "This PDF is password-protected. Remove the password first with Protect PDF.", "error")
+    } else {
+      setStatus(pnStatus, "Failed to load preview.", "error")
+    }
+  }
+}
+pnFileInput.addEventListener("change", (e) => {
+  pnFileRef = e.target.files && e.target.files[0] ? e.target.files[0] : null
+  setStatus(pnStatus, "")
+  if (pnFileRef) clearPn.classList.remove("hidden")
+  else clearPn.classList.add("hidden")
+  loadPnPreview()
+})
+clearPn.addEventListener("click", (e) => {
+  e.preventDefault()
+  pnFileInput.value = ""
+  pnFileRef = null
+  clearPn.classList.add("hidden")
+  setStatus(pnStatus, "")
+  loadPnPreview()
+})
+pnPosition.addEventListener("change", drawPnPreview)
+pnFormat.addEventListener("change", drawPnPreview)
+pnStart.addEventListener("input", drawPnPreview)
+pnSize.addEventListener("input", () => { pnSizeVal.textContent = pnSize.value; drawPnPreview() })
+pnMargin.addEventListener("input", () => { pnMarginVal.textContent = pnMargin.value; drawPnPreview() })
+pnBtn.addEventListener("click", async () => {
+  if (!pnFileRef) {
+    setStatus(pnStatus, "Please select a PDF.", "error")
+    track("pn_missing_file")
+    return
+  }
+  if (pnFileRef.size > MAX_FILE_SIZE) {
+    setStatus(pnStatus, "File is too large (max 100 MB).", "error")
+    return
+  }
+  setBusy(pnBtn, true, "Add Numbers", "Processing...")
+  setStatus(pnStatus, "")
+  try {
+    track("pn_start")
+    const buffer = await pnFileRef.arrayBuffer()
+    const src = await PDFLib.PDFDocument.load(buffer)
+    const out = await PDFLib.PDFDocument.create()
+    const font = await out.embedFont(PDFLib.StandardFonts.Helvetica)
+    const total = src.getPageCount()
+    const start = Math.max(1, parseInt(pnStart.value, 10) || 1)
+    const sizePt = parseInt(pnSize.value, 10) || 11
+    const marginPt = parseInt(pnMargin.value, 10) || 24
+    const pos = pnPosition.value
+    const pages = await out.copyPages(src, Array.from({ length: total }, (_, i) => i))
+    for (let i = 0; i < pages.length; i++) {
+      const p = await addPageBaked(out, pages[i])
+      const w = p.getWidth()
+      const h = p.getHeight()
+      const text = pnLabel(start + i)
+      const tw = font.widthOfTextAtSize(text, sizePt)
+      const x = pos.endsWith("left") ? marginPt : pos.endsWith("right") ? w - marginPt - tw : (w - tw) / 2
+      const y = pos.startsWith("bottom") ? marginPt : h - marginPt - sizePt * 0.78
+      p.drawText(text, { x, y, size: sizePt, font, color: PDFLib.rgb(0.07, 0.07, 0.07) })
+    }
+    const bytes = await out.save()
+    const base = pnFileRef.name.replace(/\.pdf$/i, "")
+    downloadBytes(bytes, base + "_numbered.pdf")
+    setStatus(pnStatus, "Done. " + total + " pages numbered.", "success")
+    track("pn_success", { pages: total })
+  } catch (err) {
+    console.error("page numbers error:", err)
+    if (String(err.message || "").includes("encrypted")) {
+      setStatus(pnStatus, "This PDF is password-protected. Remove the password first with Protect PDF.", "error")
+    } else {
+      setStatus(pnStatus, "Failed to process file.", "error")
+    }
+    track("pn_error")
+  } finally {
+    setBusy(pnBtn, false, "Add Numbers", "Processing...")
+  }
+})
+pnCard.addEventListener("dragover", (e) => handleDragOver(pnCard, e))
+pnCard.addEventListener("dragenter", (e) => handleDragOver(pnCard, e))
+pnCard.addEventListener("dragleave", (e) => handleDragLeave(pnCard, e))
+pnCard.addEventListener("drop", (e) => {
+  e.preventDefault()
+  e.stopPropagation()
+  pnCard.classList.remove("drag-over")
+  const files = Array.from(e.dataTransfer.files || []).filter(f => f.type === "application/pdf" || f.name.endsWith(".pdf"))
+  if (files.length === 0) return
+  const dt = new DataTransfer()
+  dt.items.add(files[0])
+  pnFileInput.files = dt.files
+  pnFileInput.dispatchEvent(new Event("change"))
+})
+

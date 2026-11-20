@@ -58,5 +58,23 @@
     "title": "How to Add a Text Watermark to a PDF (Free, No Upload)",
     "date": "2026-11-18",
     "description": "Stamp DRAFT or CONFIDENTIAL across your pages with live preview: size, opacity, angle, tiled layout. 100% client-side."
+  },
+  {
+    "slug": "rotate-pdf-pages",
+    "title": "How to Rotate PDF Pages Permanently (Free, No Upload)",
+    "date": "2026-11-20",
+    "description": "Turn sideways pages left or right, one page or all at once. Rotation is saved into the file — quality untouched."
+  },
+  {
+    "slug": "organize-pdf-pages-delete-reorder",
+    "title": "Delete and Reorder PDF Pages Visually (No Software Needed)",
+    "date": "2026-11-20",
+    "description": "Remove blank or duplicate pages and drag pages into order — entirely in your browser, with no upload."
+  },
+  {
+    "slug": "add-page-numbers-to-pdf",
+    "title": "How to Add Page Numbers to a PDF (With Live Preview)",
+    "date": "2026-11-20",
+    "description": "Number pages in six positions and four formats, with start number, size and margin controls. Free and private."
   }
 ]
