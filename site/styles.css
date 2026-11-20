@@ -147,9 +147,6 @@ body {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
-}
 .card-title {
   margin: 0;
   font-size: 22px;
@@ -218,6 +215,25 @@ input[type="password"]:focus,
 textarea:focus {
   border-color: #93c5fd;
   box-shadow: 0 0 0 4px rgba(147, 197, 253, 0.35);
+}
+select {
+  width: 100%;
+  appearance: none;
+  outline: none;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 16px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+select:focus {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 4px rgba(147, 197, 253, 0.35);
+}
+.tools-row {
+  margin-top: -24px;
 }
 .actions {
   margin-top: 18px;

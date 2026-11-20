@@ -22,5 +22,29 @@
     "title": "5 Ways to Extract and Organize PDF Pages (Free & No Upload)",
     "date": "2026-03-10",
     "description": "Split by range, select pages visually, merge files, annotate, and do it all offline with zero uploads."
+  },
+  {
+    "slug": "convert-images-to-pdf",
+    "title": "How to Convert Images to PDF (JPG & PNG, No Upload)",
+    "date": "2026-09-05",
+    "description": "Turn photos and scans into one PDF in your browser. Reorder pages, pick fit-to-image or A4, download instantly."
+  },
+  {
+    "slug": "pdf-to-png-images",
+    "title": "How to Convert PDF Pages to PNG Images (Free, In Your Browser)",
+    "date": "2026-09-20",
+    "description": "Export every PDF page as a sharp PNG at 1x, 2x or 3x quality. Multi-page documents download as a ZIP."
+  },
+  {
+    "slug": "split-pdf-without-uploading",
+    "title": "Split a PDF Without Uploading It: A Private, Browser-Only Method",
+    "date": "2026-10-10",
+    "description": "Keep contracts and records on your device. Split PDFs locally and verify any tool is truly client-side."
+  },
+  {
+    "slug": "why-pdf-pages-look-rotated",
+    "title": "Why Some PDF Pages Look Rotated (and How to Fix Them)",
+    "date": "2026-11-02",
+    "description": "The hidden /Rotate flag explains sideways pages and misplaced annotations. Learn to check and normalize it."
   }
 ]

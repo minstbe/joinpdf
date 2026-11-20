@@ -64,6 +64,7 @@ PAGE_TEMPLATE = """<!doctype html>
   }}
   </script>
   <title>{title} | PDF Split &amp; Merge Blog</title>
+  <link rel="icon" href="../joinpdf.ico">
   <link rel="stylesheet" href="../styles.css">
   <script>
     (function(id){{

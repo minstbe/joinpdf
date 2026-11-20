@@ -1,0 +1,18 @@
+<p>You open a PDF and some pages appear sideways — or your annotations land in the wrong place after editing. The culprit is usually a hidden page attribute called <code>/Rotate</code>. Here is what it means and how to deal with it.</p>
+<h2>What /Rotate does</h2>
+<p>Every PDF page has a media box (its raw width and height) and an optional rotation flag of 0, 90, 180 or 270 degrees. Viewers apply this flag when displaying the page. Scanners and some export tools produce pages whose raw content is landscape but whose <code>/Rotate</code> flag makes them display portrait.</p>
+<p>That is fine for viewing — but tools that draw on the page (annotations, stamps, watermarks) must account for the flag. If they do not, marks appear rotated or shifted, exactly as if the coordinate system were turned a quarter turn.</p>
+<h2>How to check a page's rotation</h2>
+<ul>
+  <li>In many PDF viewers, page properties show the page size; a portrait-looking page reported as landscape usually carries a 90° or 270° flag.</li>
+  <li>Command line: <code>pdfinfo -f 1 -l 1 file.pdf</code> (Poppler) prints the page size and rotation.</li>
+</ul>
+<h2>Fixing it</h2>
+<p>The robust fix is to <strong>bake the rotation into the page</strong>: rewrite the page so its content is stored upright and the <code>/Rotate</code> flag becomes 0. After that, every tool — viewers, editors, annotation exporters — agrees on the coordinate system.</p>
+<p>The <a href="https://joinpdf.top/">Split PDF tool on joinpdf.top</a> does this automatically: when you annotate a rotated page and export, the page is normalized first, so your pen marks and text land exactly where you placed them, in the correct orientation.</p>
+<h2>Preventing it at the source</h2>
+<ul>
+  <li>When scanning, choose the correct orientation in the scanner software instead of relying on auto-rotate flags.</li>
+  <li>When exporting from design tools, prefer "normalize page orientation" options if available.</li>
+</ul>
+<p>Need to extract or reorder pages of a rotated document? Try the visual page picker on <a href="https://joinpdf.top/">joinpdf.top</a> — no upload required.</p>

@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="The hidden /Rotate flag explains sideways pages and misplaced annotations. Learn to check and normalize it.">
+  <meta name="robots" content="index, follow">
+  <meta property="og:title" content="Why Some PDF Pages Look Rotated (and How to Fix Them)">
+  <meta property="og:description" content="The hidden /Rotate flag explains sideways pages and misplaced annotations. Learn to check and normalize it.">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://joinpdf.top/posts/why-pdf-pages-look-rotated.html">
+  <meta property="og:site_name" content="PDF Split & Merge">
+  <meta property="article:published_time" content="2026-11-02">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Why Some PDF Pages Look Rotated (and How to Fix Them)">
+  <meta name="twitter:description" content="The hidden /Rotate flag explains sideways pages and misplaced annotations. Learn to check and normalize it.">
+  <link rel="canonical" href="https://joinpdf.top/posts/why-pdf-pages-look-rotated.html">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": "Why Some PDF Pages Look Rotated (and How to Fix Them)",
+    "description": "The hidden /Rotate flag explains sideways pages and misplaced annotations. Learn to check and normalize it.",
+    "datePublished": "2026-11-02",
+    "author": { "@type": "Organization", "name": "PDF Split & Merge" },
+    "publisher": { "@type": "Organization", "name": "PDF Split & Merge", "url": "https://joinpdf.top/" },
+    "mainEntityOfPage": { "@type": "WebPage", "@id": "https://joinpdf.top/posts/why-pdf-pages-look-rotated.html" }
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://joinpdf.top/" },
+      { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://joinpdf.top/blog.html" },
+      { "@type": "ListItem", "position": 3, "name": "Why Some PDF Pages Look Rotated (and How to Fix Them)", "item": "https://joinpdf.top/posts/why-pdf-pages-look-rotated.html" }
+    ]
+  }
+  </script>
+  <title>Why Some PDF Pages Look Rotated (and How to Fix Them) | PDF Split &amp; Merge Blog</title>
+  <link rel="icon" href="../joinpdf.ico">
+  <link rel="stylesheet" href="../styles.css">
+  <script>
+    (function(id){
+      var s=document.createElement("script")
+      s.async=true
+      s.src="https://www.googletagmanager.com/gtag/js?id="+id
+      document.head.appendChild(s)
+      window.dataLayer=window.dataLayer||[]
+      function gtag(){dataLayer.push(arguments)}
+      window.gtag=gtag
+      gtag("js",new Date())
+      gtag("config",id,{anonymize_ip:true,send_page_view:true})
+    })("G-4EXX1BTT8K")
+  </script>
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">PDF Split &amp; Merge</div>
+    <div class="subtitle">Articles: tips, guides, and privacy</div>
+    <div class="actions">
+      <a href="../index.html" class="btn ghost">Home</a>
+      <a href="../blog.html" class="btn ghost">Blog</a>
+      <button id="themeToggle" class="btn ghost">Toggle Theme</button>
+    </div>
+  </header>
+  <main class="container">
+    <article class="card" style="grid-column: 1 / -1;">
+      <h1 class="card-title">Why Some PDF Pages Look Rotated (and How to Fix Them)</h1>
+      <p class="card-desc">Published on 2026-11-02 &middot; The hidden /Rotate flag explains sideways pages and misplaced annotations. Learn to check and normalize it.</p>
+      <p>You open a PDF and some pages appear sideways — or your annotations land in the wrong place after editing. The culprit is usually a hidden page attribute called <code>/Rotate</code>. Here is what it means and how to deal with it.</p>
+<h2>What /Rotate does</h2>
+<p>Every PDF page has a media box (its raw width and height) and an optional rotation flag of 0, 90, 180 or 270 degrees. Viewers apply this flag when displaying the page. Scanners and some export tools produce pages whose raw content is landscape but whose <code>/Rotate</code> flag makes them display portrait.</p>
+<p>That is fine for viewing — but tools that draw on the page (annotations, stamps, watermarks) must account for the flag. If they do not, marks appear rotated or shifted, exactly as if the coordinate system were turned a quarter turn.</p>
+<h2>How to check a page's rotation</h2>
+<ul>
+  <li>In many PDF viewers, page properties show the page size; a portrait-looking page reported as landscape usually carries a 90° or 270° flag.</li>
+  <li>Command line: <code>pdfinfo -f 1 -l 1 file.pdf</code> (Poppler) prints the page size and rotation.</li>
+</ul>
+<h2>Fixing it</h2>
+<p>The robust fix is to <strong>bake the rotation into the page</strong>: rewrite the page so its content is stored upright and the <code>/Rotate</code> flag becomes 0. After that, every tool — viewers, editors, annotation exporters — agrees on the coordinate system.</p>
+<p>The <a href="https://joinpdf.top/">Split PDF tool on joinpdf.top</a> does this automatically: when you annotate a rotated page and export, the page is normalized first, so your pen marks and text land exactly where you placed them, in the correct orientation.</p>
+<h2>Preventing it at the source</h2>
+<ul>
+  <li>When scanning, choose the correct orientation in the scanner software instead of relying on auto-rotate flags.</li>
+  <li>When exporting from design tools, prefer "normalize page orientation" options if available.</li>
+</ul>
+<p>Need to extract or reorder pages of a rotated document? Try the visual page picker on <a href="https://joinpdf.top/">joinpdf.top</a> — no upload required.</p>
+    </article>
+  </main>
+  <footer class="footer">
+    <div>All processing happens in your browser. No data is ever uploaded to a server.</div>
+    <div class="footer-links">
+      <a href="../index.html">Home</a>
+      <span>&middot;</span>
+      <a href="../blog.html">Blog</a>
+      <span>&middot;</span>
+      <a href="https://github.com" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </footer>
+  <script>
+    function track(event, params){ try{ if(typeof gtag==="function") gtag("event", event, params||{}) }catch(e){} }
+    function applyTheme(initial){ var t = initial==="dark" ? "dark" : "light"; document.documentElement.setAttribute("data-theme", t) }
+    var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
+    applyTheme(localStorage.getItem("theme") || (prefersDark ? "dark" : "light"))
+    document.getElementById("themeToggle").addEventListener("click", function() {
+      var current = document.documentElement.getAttribute("data-theme")
+      var next = current==="dark" ? "light" : "dark"
+      localStorage.setItem("theme", next)
+      applyTheme(next)
+      track("theme_toggle", { theme: next })
+    })
+    track("blog_post_view", { slug: "why-pdf-pages-look-rotated" })
+  </script>
+</body>
+</html>

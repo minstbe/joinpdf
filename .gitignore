@@ -19,3 +19,10 @@ tests/**/coverage/
 *.db
 .env
 
+# Python
+__pycache__/
+*.pyc
+
+# Stray root favicon (kept on disk, site/joinpdf.ico is the served one)
+/joinpdf.ico
+

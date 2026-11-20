@@ -14,7 +14,6 @@ const helpBtn = document.getElementById("helpBtn")
 const helpModal = document.getElementById("helpModal")
 const helpClose = document.getElementById("helpClose")
 const feedbackBtn = document.getElementById("feedbackBtn")
-const feedbackOpen = document.getElementById("feedbackOpen")
 const feedbackModal = document.getElementById("feedbackModal")
 const feedbackClose = document.getElementById("feedbackClose")
 const feedbackInput = document.getElementById("feedbackInput")
@@ -63,11 +62,8 @@ let selectedIndices = []
 let selDragIdx = null
 let annotations = {}
 let currentTool = "pointer"
-let isDrawing = false
 let currentStroke = null
-let drawingPageIdx = null
 let activePreviewPage = null
-let draggingTextIdx = null
 let textClickTime = 0
 const API_BASE = (location.hostname === "localhost" || location.hostname === "127.0.0.1")
   ? (location.port === "5600" ? "" : "http://localhost:5600")
@@ -182,7 +178,6 @@ function closeFeedback() {
   feedbackModal.classList.add("hidden")
 }
 feedbackBtn && feedbackBtn.addEventListener("click", openFeedback)
-feedbackOpen && feedbackOpen.addEventListener("click", openFeedback)
 feedbackClose && feedbackClose.addEventListener("click", closeFeedback)
 window.addEventListener("keydown", e => {
   if (e.key === "Escape") closeFeedback()
@@ -191,7 +186,7 @@ feedbackModal && feedbackModal.addEventListener("click", e => {
   if (e.target === feedbackModal) closeFeedback()
 })
 async function renderThumbnails(file) {
-  thumbnailGrid.innerHTML = "<div style='text-align:center;padding:20px;color:var(--muted)'>Loading page thumbnails\u2026/div>"
+  thumbnailGrid.innerHTML = "<div style='text-align:center;padding:20px;color:var(--muted)'>Loading page thumbnails\u2026</div>"
   splitPreview.classList.remove("hidden")
   selectedArea.classList.add("hidden")
   selectedIndices = []
@@ -501,144 +496,46 @@ fsClearPage.addEventListener("click", () => {
   }
 })
 
-function attachDrawEvents(drawCanvas, pageIdx, item) {
-  let startX = 0, startY = 0, drawStarted = false
-  const getPos = (e) => {
-    const r = item.getBoundingClientRect()
-    const canvasW = drawCanvas.width
-    const canvasH = drawCanvas.height
-    const imgEl = item.querySelector("canvas:not(.draw-layer)")
-    const imgR = imgEl ? imgEl.getBoundingClientRect() : r
-    return { x: (e.clientX - imgR.left) * (canvasW / imgR.width), y: (e.clientY - imgR.top) * (canvasH / imgR.height) }
-  }
-  item.addEventListener("pointerdown", (e) => {
-    if (e.target.classList.contains("remove-sel")) return
-    startX = e.clientX
-    startY = e.clientY
-    drawStarted = false
-    if (!annotations[pageIdx]) annotations[pageIdx] = []
-  })
-  item.addEventListener("pointermove", (e) => {
-    if (Math.hypot(e.clientX - startX, e.clientY - startY) < 6) return
-    if (!drawStarted) {
-      drawStarted = true
-      const p = getPos(e)
-      currentStroke = { type: currentTool, color: currentTool === "highlighter" ? "#ffeb3b" : annoColor.value, points: [p], width: currentTool === "highlighter" ? 18 : 2 }
-      annotations[pageIdx].push(currentStroke)
-    }
-    if (currentTool === "eraser") {
-      const p = getPos(e)
-      checkErase(pageIdx, p)
-    } else if (currentStroke) {
-      currentStroke.points.push(getPos(e))
-    }
-    redrawPage(pageIdx)
-  })
-  item.addEventListener("pointerup", () => {
-    if (drawStarted && currentStroke && currentStroke.points.length === 1) {
-      annotations[pageIdx].pop()
-      redrawPage(pageIdx)
-    }
-    currentStroke = null
-    drawStarted = false
-  })
-  item.addEventListener("pointerleave", () => {
-    currentStroke = null
-    drawStarted = false
-  })
-  item.addEventListener("click", (e) => {
-    if (drawStarted || (e.target.classList && e.target.classList.contains("remove-sel"))) {
-      e.stopPropagation()
-      e.preventDefault()
-    }
-  }, true)
-}
-
-function checkErase(pageIdx, p) {
-  const strokes = annotations[pageIdx]
-  if (!strokes) return
-  const r = 12
-  for (let i = strokes.length - 1; i >= 0; i--) {
-    for (const pt of strokes[i].points) {
-      if (Math.hypot(pt.x - p.x, pt.y - p.y) < r) {
-        strokes.splice(i, 1)
-        return
-      }
-    }
-  }
-}
-
-function redrawPage(pageIdx) {
-  const item = thumbnailGrid.querySelector(`.thumb-item[data-page="${pageIdx}"]`)
-  if (!item) return
-  const drawCanvas = item.querySelector(".draw-layer")
-  if (!drawCanvas) return
-  const ctx = drawCanvas.getContext("2d")
-  ctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height)
-  const strokes = annotations[pageIdx] || []
-  for (const s of strokes) {
-    if (s.type === "highlighter") {
-      ctx.strokeStyle = s.color
-      ctx.globalAlpha = 0.45
-      ctx.lineWidth = s.width
-      ctx.lineCap = "round"
-      ctx.lineJoin = "round"
-    } else {
-      ctx.strokeStyle = s.color
-      ctx.globalAlpha = 1
-      ctx.lineWidth = s.width
-      ctx.lineCap = "round"
-      ctx.lineJoin = "round"
-    }
-    if (s.points.length < 2) {
-      ctx.beginPath()
-      ctx.arc(s.points[0].x, s.points[0].y, s.width / 2, 0, Math.PI * 2)
-      ctx.fillStyle = ctx.strokeStyle
-      ctx.fill()
-      continue
-    }
-    ctx.beginPath()
-    ctx.moveTo(s.points[0].x, s.points[0].y)
-    for (let i = 1; i < s.points.length; i++) ctx.lineTo(s.points[i].x, s.points[i].y)
-    ctx.stroke()
-  }
-  ctx.globalAlpha = 1
-}
-
-async function flattenAnnotations(pdfPage, pageIdx, font, pdfDoc) {
+async function flattenAnnotations(pdfPage, pageIdx, pdfDoc) {
   const strokes = annotations[pageIdx]
   if (!strokes || strokes.length === 0) return
   const w = pdfPage.getWidth()
   const h = pdfPage.getHeight()
   for (const s of strokes) {
     if (s.type === "text") {
-      const canvas = document.createElement("canvas")
-      const size = s.fontSize * 8
-      canvas.width = size * s.text.length + 20
-      canvas.height = size * 1.5
-      const ctx = canvas.getContext("2d")
+      const R = 4
+      const fontPx = s.fontSize * 2.5 * R
+      const cv = document.createElement("canvas")
+      let ctx = cv.getContext("2d")
+      ctx.font = fontPx + "px sans-serif"
+      const tw = Math.ceil(ctx.measureText(s.text).width)
+      const pad = Math.ceil(fontPx * 0.15)
+      cv.width = tw + pad * 2
+      cv.height = Math.ceil(fontPx * 1.4)
+      const baseY = Math.ceil(fontPx * 1.05)
+      ctx = cv.getContext("2d")
+      ctx.font = fontPx + "px sans-serif"
       ctx.fillStyle = s.color
-      ctx.font = size + "px sans-serif"
-      ctx.fillText(s.text, 4, size)
-      const blob = await new Promise(r => canvas.toBlob(r, "image/png"))
-      const buf = await blob.arrayBuffer()
+      ctx.textBaseline = "alphabetic"
+      ctx.fillText(s.text, pad, baseY)
       try {
-        const img = await pdfDoc.embedPng(buf)
-        pdfPage.drawImage(img, { x: s.x * w, y: (1 - s.y) * h - size * 0.8, width: canvas.width * 0.5, height: canvas.height * 0.5 })
-      } catch (_) {}
+        const img = await pdfDoc.embedPng(cv.toDataURL("image/png"))
+        pdfPage.drawImage(img, {
+          x: s.x * w - pad / R,
+          y: (1 - s.y) * h - (cv.height - baseY) / R,
+          width: cv.width / R,
+          height: cv.height / R,
+        })
+      } catch (e) { console.error("text export failed:", e) }
     } else {
       if (s.points.length < 2) continue
-      const color = s.type === "highlighter" ? PDFLib.rgb(1, 0.92, 0.23) : hexToRgb(s.color)
+      const color = hexToRgb(s.color)
       const alpha = s.type === "highlighter" ? 0.45 : 1
-      const lw = s.width * 3
+      const lw = s.width * 2.5
       for (let i = 1; i < s.points.length; i++) {
-        const x1 = s.points[i - 1].x * w
-        const y1 = (1 - s.points[i - 1].y) * h
-        const x2 = s.points[i].x * w
-        const y2 = (1 - s.points[i].y) * h
         pdfPage.drawLine({
-          start: { x: x1, y: y1 },
-          end: { x: x2, y: y2 },
+          start: { x: s.points[i - 1].x * w, y: (1 - s.points[i - 1].y) * h },
+          end: { x: s.points[i].x * w, y: (1 - s.points[i].y) * h },
           thickness: lw,
           color: color,
           opacity: alpha,
@@ -648,17 +545,30 @@ async function flattenAnnotations(pdfPage, pageIdx, font, pdfDoc) {
   }
 }
 
+async function addPageBaked(out, page) {
+  const rot = ((page.getRotation().angle % 360) + 360) % 360
+  if (rot === 0) { out.addPage(page); return page }
+  const { width: W, height: H } = page.getSize()
+  const emb = await out.embedPage(page)
+  let np
+  if (rot === 90) {
+    np = out.addPage([H, W])
+    np.drawPage(emb, { x: 0, y: W, rotate: PDFLib.degrees(-90) })
+  } else if (rot === 180) {
+    np = out.addPage([W, H])
+    np.drawPage(emb, { x: W, y: H, rotate: PDFLib.degrees(180) })
+  } else {
+    np = out.addPage([H, W])
+    np.drawPage(emb, { x: H, y: 0, rotate: PDFLib.degrees(90) })
+  }
+  return np
+}
+
 function hexToRgb(hex) {
   const r = parseInt(hex.slice(1, 3), 16) / 255
   const g = parseInt(hex.slice(3, 5), 16) / 255
   const b = parseInt(hex.slice(5, 7), 16) / 255
   return PDFLib.rgb(r, g, b)
-}
-
-function pointsToSvgPath(points, w, h) {
-  let d = `M ${points[0].x * w} ${(1 - points[0].y) * h}`
-  for (let i = 1; i < points.length; i++) d += ` L ${points[i].x * w} ${(1 - points[i].y) * h}`
-  return d
 }
 
 function togglePage(idx, shift) {
@@ -867,20 +777,20 @@ document.querySelectorAll(".tool-btn[data-tool]").forEach(btn => {
     currentTool = btn.dataset.tool
   })
 })
-annoColor.addEventListener("input", () => {})
 clearPageAnno.addEventListener("click", () => {
   if (activePreviewPage !== null) {
     delete annotations[activePreviewPage]
     redrawPreview(activePreviewPage)
+    syncThumbnailAnnotation(activePreviewPage)
   }
 })
 clearAllAnno.addEventListener("click", () => {
   annotations = {}
   if (activePreviewPage !== null) redrawPreview(activePreviewPage)
+  for (const el of thumbnailGrid.querySelectorAll(".thumb-item")) {
+    syncThumbnailAnnotation(parseInt(el.dataset.page, 10))
+  }
 })
-function getLastTouchedPage() {
-  return activePreviewPage
-}
 
 let previewPdfDoc = null
 let previewPosInSelection = 0
@@ -946,7 +856,7 @@ function doErase(pageIdx, p, redrawFn) {
     if (s.type === "text") {
       const tw = s.text.length * s.fontSize * 0.004
       const th = s.fontSize * 0.005
-      if (x >= s.x - 0.01 && x <= s.x + tw + 0.01 && y >= s.y - th - 0.005 && y <= s.y + 0.005) {
+      if (p.x >= s.x - 0.01 && p.x <= s.x + tw + 0.01 && p.y >= s.y - th - 0.005 && p.y <= s.y + 0.005) {
         strokes.splice(i, 1)
         redrawFn(pageIdx)
         return
@@ -1108,9 +1018,14 @@ splitBtn.addEventListener("click", async () => {
     const out = await PDFLib.PDFDocument.create()
     const pages = await out.copyPages(src, indices)
     for (let i = 0; i < pages.length; i++) {
-      const p = pages[i]
-      out.addPage(p)
-      await flattenAnnotations(p, indices[i], null, out)
+      let p = pages[i]
+      const hasAnno = annotations[indices[i]] && annotations[indices[i]].length > 0
+      if (hasAnno) {
+        p = await addPageBaked(out, p)
+      } else {
+        out.addPage(p)
+      }
+      await flattenAnnotations(p, indices[i], out)
     }
     const bytes = await out.save()
     const base = splitFileRef.name.replace(/\.pdf$/i, "")
@@ -1120,6 +1035,7 @@ splitBtn.addEventListener("click", async () => {
     setStatus(splitStatus, "Done. " + indices.length + " pages extracted.", "success")
     track("split_success", { pages: indices.length })
   } catch (err) {
+    console.error("split error:", err)
     setStatus(splitStatus, "Failed to process file.", "error")
     track("split_error")
   } finally {
@@ -1380,5 +1296,302 @@ themeToggle.addEventListener("click", () => {
   localStorage.setItem("theme", next)
   applyTheme(next)
   track("theme_toggle", { theme: next })
+})
+
+// ===== Images to PDF =====
+const imgFilesInput = document.getElementById("imgFiles")
+const imgListEl = document.getElementById("imgList")
+const imgPageSize = document.getElementById("imgPageSize")
+const imgNameInput = document.getElementById("imgName")
+const img2pdfBtn = document.getElementById("img2pdfBtn")
+const imgStatus = document.getElementById("imgStatus")
+const clearImgs = document.getElementById("clearImgs")
+const img2pdfCard = document.getElementById("img2pdfCard")
+let imgItems = []
+let imgDragIdx = null
+
+function renderImgList() {
+  imgListEl.innerHTML = ""
+  for (let i = 0; i < imgItems.length; i++) {
+    const item = imgItems[i]
+    const li = document.createElement("li")
+    li.className = "file-item"
+    li.draggable = true
+    li.dataset.index = String(i)
+    const handle = document.createElement("div")
+    handle.className = "handle"
+    const thumb = document.createElement("img")
+    thumb.className = "file-thumb"
+    thumb.alt = ""
+    if (!item._url) item._url = URL.createObjectURL(item.file)
+    thumb.src = item._url
+    const name = document.createElement("div")
+    name.className = "filename"
+    name.textContent = item.name
+    const meta = document.createElement("div")
+    meta.className = "file-meta"
+    meta.textContent = formatSize(item.file.size)
+    thumb.addEventListener("load", () => {
+      meta.textContent = formatSize(item.file.size) + " \u00B7 " + thumb.naturalWidth + "\u00D7" + thumb.naturalHeight
+    })
+    const up = document.createElement("button")
+    up.className = "move"
+    up.textContent = "\u25B2"
+    up.addEventListener("click", () => {
+      const idx = parseInt(li.dataset.index, 10)
+      if (idx > 0) {
+        const a = imgItems[idx]
+        imgItems.splice(idx, 1)
+        imgItems.splice(idx - 1, 0, a)
+        renderImgList()
+      }
+    })
+    const down = document.createElement("button")
+    down.className = "move"
+    down.textContent = "\u25BC"
+    down.addEventListener("click", () => {
+      const idx = parseInt(li.dataset.index, 10)
+      if (idx < imgItems.length - 1) {
+        const a = imgItems[idx]
+        imgItems.splice(idx, 1)
+        imgItems.splice(idx + 1, 0, a)
+        renderImgList()
+      }
+    })
+    const remove = document.createElement("button")
+    remove.className = "remove"
+    remove.textContent = "Remove"
+    remove.addEventListener("click", () => {
+      const idx = parseInt(li.dataset.index, 10)
+      if (imgItems[idx] && imgItems[idx]._url) URL.revokeObjectURL(imgItems[idx]._url)
+      imgItems.splice(idx, 1)
+      renderImgList()
+    })
+    li.appendChild(handle)
+    li.appendChild(thumb)
+    li.appendChild(name)
+    li.appendChild(meta)
+    li.appendChild(up)
+    li.appendChild(down)
+    li.appendChild(remove)
+    li.addEventListener("dragstart", (e) => {
+      imgDragIdx = parseInt(li.dataset.index, 10)
+      li.classList.add("dragging")
+      e.dataTransfer.effectAllowed = "move"
+    })
+    li.addEventListener("dragend", () => {
+      imgDragIdx = null
+      li.classList.remove("dragging")
+    })
+    li.addEventListener("dragover", (e) => {
+      e.preventDefault()
+      e.dataTransfer.dropEffect = "move"
+    })
+    li.addEventListener("drop", (e) => {
+      e.preventDefault()
+      const targetIndex = parseInt(li.dataset.index, 10)
+      if (imgDragIdx !== null && imgDragIdx !== targetIndex) {
+        const [moved] = imgItems.splice(imgDragIdx, 1)
+        imgItems.splice(targetIndex, 0, moved)
+        renderImgList()
+      }
+    })
+    imgListEl.appendChild(li)
+  }
+  if (imgItems.length === 0) clearImgs.classList.add("hidden")
+}
+
+imgFilesInput.addEventListener("change", (e) => {
+  const files = Array.from(e.target.files || [])
+  for (const f of files) imgItems.push({ id: genId(), file: f, name: f.name })
+  if (imgItems.length > 0) clearImgs.classList.remove("hidden")
+  renderImgList()
+  setStatus(imgStatus, "")
+  track("img2pdf_files_selected", { count: files.length })
+})
+clearImgs.addEventListener("click", (e) => {
+  e.preventDefault()
+  for (const it of imgItems) if (it._url) URL.revokeObjectURL(it._url)
+  imgItems = []
+  imgFilesInput.value = ""
+  renderImgList()
+  setStatus(imgStatus, "")
+})
+
+function loadImageElement(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file)
+    const im = new Image()
+    im.onload = () => resolve({ im, url })
+    im.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Unsupported image: " + file.name)) }
+    im.src = url
+  })
+}
+
+img2pdfBtn.addEventListener("click", async () => {
+  if (imgItems.length === 0) {
+    setStatus(imgStatus, "Please add images.", "error")
+    track("img2pdf_missing_files")
+    return
+  }
+  setBusy(img2pdfBtn, true, "Create PDF", "Processing...")
+  setStatus(imgStatus, "")
+  try {
+    track("img2pdf_start", { count: imgItems.length })
+    const out = await PDFLib.PDFDocument.create()
+    const A4 = [595.28, 841.89]
+    for (const item of imgItems) {
+      const { im, url } = await loadImageElement(item.file)
+      const cv = document.createElement("canvas")
+      cv.width = im.naturalWidth
+      cv.height = im.naturalHeight
+      cv.getContext("2d").drawImage(im, 0, 0)
+      URL.revokeObjectURL(url)
+      const isJpeg = item.file.type === "image/jpeg"
+      const img = isJpeg
+        ? await out.embedJpg(cv.toDataURL("image/jpeg", 0.92))
+        : await out.embedPng(cv.toDataURL("image/png"))
+      const iw = img.width * 0.75
+      const ih = img.height * 0.75
+      let page, dw = iw, dh = ih, x = 0, y = 0
+      if (imgPageSize.value === "a4") {
+        page = out.addPage(A4)
+        const margin = 28
+        const scale = Math.min((A4[0] - margin * 2) / iw, (A4[1] - margin * 2) / ih)
+        dw = iw * scale
+        dh = ih * scale
+        x = (A4[0] - dw) / 2
+        y = (A4[1] - dh) / 2
+      } else {
+        page = out.addPage([iw, ih])
+      }
+      page.drawImage(img, { x, y, width: dw, height: dh })
+    }
+    const bytes = await out.save()
+    const custom = ensurePdfName(imgNameInput.value)
+    downloadBytes(bytes, custom || "images.pdf")
+    setStatus(imgStatus, "Done. " + imgItems.length + " images converted.", "success")
+    track("img2pdf_success", { count: imgItems.length })
+  } catch (err) {
+    console.error("img2pdf error:", err)
+    setStatus(imgStatus, "Failed to convert images.", "error")
+    track("img2pdf_error")
+  } finally {
+    setBusy(img2pdfBtn, false, "Create PDF", "Processing...")
+  }
+})
+
+img2pdfCard.addEventListener("dragover", (e) => handleDragOver(img2pdfCard, e))
+img2pdfCard.addEventListener("dragenter", (e) => handleDragOver(img2pdfCard, e))
+img2pdfCard.addEventListener("dragleave", (e) => handleDragLeave(img2pdfCard, e))
+img2pdfCard.addEventListener("drop", (e) => {
+  e.preventDefault()
+  e.stopPropagation()
+  img2pdfCard.classList.remove("drag-over")
+  const files = Array.from(e.dataTransfer.files || []).filter(f => f.type.startsWith("image/"))
+  if (files.length === 0) return
+  const dt = new DataTransfer()
+  files.forEach(f => dt.items.add(f))
+  imgFilesInput.files = dt.files
+  imgFilesInput.dispatchEvent(new Event("change"))
+})
+
+// ===== PDF to Images =====
+const pdf2imgFileInput = document.getElementById("pdf2imgFile")
+const imgScaleSelect = document.getElementById("imgScale")
+const pdf2imgBtn = document.getElementById("pdf2imgBtn")
+const pdf2imgStatus = document.getElementById("pdf2imgStatus")
+const clearPdf2img = document.getElementById("clearPdf2img")
+const pdf2imgCard = document.getElementById("pdf2imgCard")
+let pdf2imgFileRef = null
+
+function downloadBlob(blob, name) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = name
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 5000)
+}
+
+pdf2imgFileInput.addEventListener("change", (e) => {
+  pdf2imgFileRef = e.target.files && e.target.files[0] ? e.target.files[0] : null
+  setStatus(pdf2imgStatus, "")
+  if (pdf2imgFileRef) clearPdf2img.classList.remove("hidden")
+  else clearPdf2img.classList.add("hidden")
+})
+clearPdf2img.addEventListener("click", (e) => {
+  e.preventDefault()
+  pdf2imgFileInput.value = ""
+  pdf2imgFileRef = null
+  clearPdf2img.classList.add("hidden")
+  setStatus(pdf2imgStatus, "")
+})
+
+pdf2imgBtn.addEventListener("click", async () => {
+  if (!pdf2imgFileRef) {
+    setStatus(pdf2imgStatus, "Please select a PDF.", "error")
+    track("pdf2img_missing_file")
+    return
+  }
+  if (pdf2imgFileRef.size > MAX_FILE_SIZE) {
+    setStatus(pdf2imgStatus, "File is too large (max 100 MB).", "error")
+    track("pdf2img_file_too_large")
+    return
+  }
+  setBusy(pdf2imgBtn, true, "Convert to PNG", "Processing...")
+  setStatus(pdf2imgStatus, "")
+  try {
+    track("pdf2img_start")
+    const buffer = await pdf2imgFileRef.arrayBuffer()
+    const pdf = await pdfjsLib.getDocument({ data: buffer }).promise
+    const scale = parseFloat(imgScaleSelect.value) || 2
+    const base = pdf2imgFileRef.name.replace(/\.pdf$/i, "")
+    const files = []
+    for (let i = 1; i <= pdf.numPages; i++) {
+      setStatus(pdf2imgStatus, "Rendering page " + i + " of " + pdf.numPages + "\u2026")
+      const page = await pdf.getPage(i)
+      const vp = page.getViewport({ scale })
+      const canvas = document.createElement("canvas")
+      canvas.width = vp.width
+      canvas.height = vp.height
+      await page.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise
+      const blob = await new Promise(r => canvas.toBlob(r, "image/png"))
+      files.push({ name: base + "_page_" + i + ".png", blob })
+    }
+    if (files.length === 1) {
+      downloadBlob(files[0].blob, files[0].name)
+    } else {
+      const zip = new JSZip()
+      for (const f of files) zip.file(f.name, f.blob)
+      const zipBlob = await zip.generateAsync({ type: "blob" })
+      downloadBlob(zipBlob, base + "_images.zip")
+    }
+    setStatus(pdf2imgStatus, "Done. " + files.length + " pages exported.", "success")
+    track("pdf2img_success", { pages: files.length })
+  } catch (err) {
+    console.error("pdf2img error:", err)
+    setStatus(pdf2imgStatus, "Failed to convert file.", "error")
+    track("pdf2img_error")
+  } finally {
+    setBusy(pdf2imgBtn, false, "Convert to PNG", "Processing...")
+  }
+})
+
+pdf2imgCard.addEventListener("dragover", (e) => handleDragOver(pdf2imgCard, e))
+pdf2imgCard.addEventListener("dragenter", (e) => handleDragOver(pdf2imgCard, e))
+pdf2imgCard.addEventListener("dragleave", (e) => handleDragLeave(pdf2imgCard, e))
+pdf2imgCard.addEventListener("drop", (e) => {
+  e.preventDefault()
+  e.stopPropagation()
+  pdf2imgCard.classList.remove("drag-over")
+  const files = Array.from(e.dataTransfer.files || []).filter(f => f.type === "application/pdf" || f.name.endsWith(".pdf"))
+  if (files.length === 0) return
+  const dt = new DataTransfer()
+  dt.items.add(files[0])
+  pdf2imgFileInput.files = dt.files
+  pdf2imgFileInput.dispatchEvent(new Event("change"))
 })
 
