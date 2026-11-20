@@ -46,5 +46,17 @@
     "title": "Why Some PDF Pages Look Rotated (and How to Fix Them)",
     "date": "2026-11-02",
     "description": "The hidden /Rotate flag explains sideways pages and misplaced annotations. Learn to check and normalize it."
+  },
+  {
+    "slug": "password-protect-pdf-without-upload",
+    "title": "How to Password Protect a PDF Without Uploading It (AES-256)",
+    "date": "2026-11-10",
+    "description": "Add a strong AES-256 password or remove one you know — entirely in your browser. No file or password ever uploaded."
+  },
+  {
+    "slug": "how-to-add-watermark-to-pdf",
+    "title": "How to Add a Text Watermark to a PDF (Free, No Upload)",
+    "date": "2026-11-18",
+    "description": "Stamp DRAFT or CONFIDENTIAL across your pages with live preview: size, opacity, angle, tiled layout. 100% client-side."
   }
 ]

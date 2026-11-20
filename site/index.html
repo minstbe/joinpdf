@@ -4,15 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <meta name="description" content="Split, merge, annotate and convert PDF files online with no upload. Images to PDF and PDF to PNG included. Files never leave your device.">
+  <meta name="description" content="Split, merge, annotate, convert, watermark and password-protect PDF files online with no upload. Files never leave your device.">
   <meta name="robots" content="index, follow">
   <meta property="og:title" content="PDF Split &amp; Merge | Split Pages and Combine PDFs Online">
-  <meta property="og:description" content="Split, merge, annotate and convert PDF files online with no upload. Images to PDF and PDF to PNG included. Files never leave your device.">
+  <meta property="og:description" content="Split, merge, annotate, convert, watermark and password-protect PDF files online with no upload. Files never leave your device.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://joinpdf.top/">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="PDF Split &amp; Merge | Split Pages and Combine PDFs Online">
-  <meta name="twitter:description" content="Split, merge, annotate and convert PDF files online with no upload. Images to PDF and PDF to PNG included. Files never leave your device.">
+  <meta name="twitter:description" content="Split, merge, annotate, convert, watermark and password-protect PDF files online with no upload. Files never leave your device.">
   <link rel="canonical" href="https://joinpdf.top/">
   <script type="application/ld+json">
   {
@@ -49,7 +49,7 @@
 <body>
   <header class="app-header">
     <div class="brand">PDF Split &amp; Merge</div>
-    <div class="subtitle">Split, merge, annotate and convert PDFs — fast and private</div>
+    <div class="subtitle">Split, merge, annotate, convert, watermark and protect PDFs — fast and private</div>
     <div class="actions">
       <button id="themeToggle" class="btn ghost">Toggle Theme</button>
       <button id="helpBtn" class="btn ghost">Help</button>
@@ -192,6 +192,95 @@
         <div id="pdf2imgStatus" class="status"></div>
       </div>
     </section>
+    <section class="card" id="wmCard">
+      <h2 class="card-title">Watermark PDF</h2>
+      <p class="card-desc">Stamp text across your pages — diagonal, tiled, your color and opacity.</p>
+      <p class="note">No upload — files stay on your device.</p>
+      <div class="field">
+        <label for="wmFile">Select a PDF <a href="#" id="clearWm" class="clear-link hidden">Clear</a></label>
+        <input id="wmFile" type="file" accept="application/pdf">
+      </div>
+      <div class="field">
+        <label for="wmText">Watermark text</label>
+        <input id="wmText" type="text" placeholder="e.g. CONFIDENTIAL" value="CONFIDENTIAL">
+      </div>
+      <div class="wm-controls hidden" id="wmControls">
+        <div class="field">
+          <label for="wmSize">Size <span id="wmSizeVal">48</span> pt</label>
+          <input type="range" id="wmSize" min="12" max="120" value="48">
+        </div>
+        <div class="field">
+          <label for="wmOpacity">Opacity <span id="wmOpacityVal">25</span>%</label>
+          <input type="range" id="wmOpacity" min="5" max="100" value="25">
+        </div>
+        <div class="field">
+          <label for="wmColor">Color</label>
+          <input type="color" id="wmColor" value="#9ca3af" class="anno-color">
+        </div>
+        <div class="field">
+          <label for="wmAngle">Angle</label>
+          <select id="wmAngle">
+            <option value="45">Diagonal ↗</option>
+            <option value="-45">Diagonal ↘</option>
+            <option value="0">Horizontal</option>
+            <option value="90">Vertical</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="wmLayout">Layout</label>
+          <select id="wmLayout">
+            <option value="center">Center</option>
+            <option value="tile">Tiled (3×3)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="wmPages">Apply to</label>
+          <select id="wmPages">
+            <option value="all">All pages</option>
+            <option value="first">First page only</option>
+          </select>
+        </div>
+      </div>
+      <div class="wm-preview hidden" id="wmPreviewWrap">
+        <canvas id="wmPreview"></canvas>
+      </div>
+      <div class="actions">
+        <button id="wmBtn" class="btn primary">Add Watermark</button>
+        <div id="wmStatus" class="status"></div>
+      </div>
+    </section>
+    <section class="card" id="protCard">
+      <h2 class="card-title">Protect PDF</h2>
+      <p class="card-desc">Add an AES-256 password, or remove one you already know.</p>
+      <p class="note">No upload — the password never leaves your device.</p>
+      <div class="field">
+        <label for="protMode">Mode</label>
+        <select id="protMode">
+          <option value="encrypt">Add password</option>
+          <option value="decrypt">Remove password</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="protFile">Select a PDF <a href="#" id="clearProt" class="clear-link hidden">Clear</a></label>
+        <input id="protFile" type="file" accept="application/pdf">
+      </div>
+      <div class="field">
+        <label for="protPw" id="protPwLabel">Password</label>
+        <input id="protPw" type="password" placeholder="Password" autocomplete="new-password">
+      </div>
+      <div class="field" id="protPw2Field">
+        <label for="protPw2">Confirm password</label>
+        <input id="protPw2" type="password" placeholder="Repeat password" autocomplete="new-password">
+      </div>
+      <div class="field" id="protPerms">
+        <label class="check-label"><input type="checkbox" id="protPrint" checked> Allow printing</label>
+        <label class="check-label"><input type="checkbox" id="protCopy" checked> Allow copying text</label>
+      </div>
+      <div class="actions">
+        <button id="protBtn" class="btn primary">Protect PDF</button>
+        <div id="protStatus" class="status"></div>
+      </div>
+    </section>
   </section>
   <footer class="footer">
     <div>All processing happens in your browser. No data is ever uploaded to a server.</div>
@@ -228,6 +317,12 @@
         <p>Select or drag JPG/PNG images onto the card. Reorder them by dragging, choose "Fit to image" or A4 page size, then click Create PDF.</p>
         <h3>PDF to Images</h3>
         <p>Select a PDF, pick an image quality, and click Convert to PNG. A single page downloads as PNG; multiple pages download together as a ZIP.</p>
+        <h3>Watermark PDF</h3>
+        <p>Select a PDF, type your watermark text, and adjust size, color, opacity, angle and layout. The preview shows exactly how it will look. Choose all pages or first page only, then click Add Watermark.</p>
+        <h3>Protect PDF</h3>
+        <p><strong>Add password:</strong> select a PDF, enter and confirm a password, optionally restrict printing/copying, then click Protect PDF. Encryption is AES-256.</p>
+        <p><strong>Remove password:</strong> switch the mode, select the protected PDF, enter its current password, and click Remove Password.</p>
+        <p>The encryption engine downloads once on first use; your file and password are processed entirely on your device.</p>
         <h3>Tips</h3>
         <p>Drag files directly onto any card instead of using the file picker.</p>
         <p>The active Split/Merge card expands to full width; the collapsed card shrinks to a narrow tab — click it to switch.</p>

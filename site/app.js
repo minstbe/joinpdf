@@ -1036,7 +1036,11 @@ splitBtn.addEventListener("click", async () => {
     track("split_success", { pages: indices.length })
   } catch (err) {
     console.error("split error:", err)
-    setStatus(splitStatus, "Failed to process file.", "error")
+    if (String(err.message || "").includes("encrypted")) {
+      setStatus(splitStatus, "This PDF is password-protected. Remove the password first with Protect PDF.", "error")
+    } else {
+      setStatus(splitStatus, "Failed to process file.", "error")
+    }
     track("split_error")
   } finally {
     setBusy(splitBtn, false, "Extract Pages", "Processing...")
@@ -1213,7 +1217,11 @@ mergeBtn.addEventListener("click", async () => {
     setStatus(mergeStatus, "Done. " + mergeItems.length + " files merged.", "success")
     track("merge_success", { count: mergeItems.length })
   } catch (err) {
-    setStatus(mergeStatus, "Failed to process files.", "error")
+    if (String(err.message || "").includes("encrypted")) {
+      setStatus(mergeStatus, "A file is password-protected. Remove its password first with Protect PDF.", "error")
+    } else {
+      setStatus(mergeStatus, "Failed to process files.", "error")
+    }
     track("merge_error")
   } finally {
     setBusy(mergeBtn, false, "Merge Files", "Processing...")
@@ -1573,7 +1581,11 @@ pdf2imgBtn.addEventListener("click", async () => {
     track("pdf2img_success", { pages: files.length })
   } catch (err) {
     console.error("pdf2img error:", err)
-    setStatus(pdf2imgStatus, "Failed to convert file.", "error")
+    if (err && err.name === "PasswordException") {
+      setStatus(pdf2imgStatus, "This PDF is password-protected. Remove the password first with Protect PDF.", "error")
+    } else {
+      setStatus(pdf2imgStatus, "Failed to convert file.", "error")
+    }
     track("pdf2img_error")
   } finally {
     setBusy(pdf2imgBtn, false, "Convert to PNG", "Processing...")
@@ -1593,5 +1605,385 @@ pdf2imgCard.addEventListener("drop", (e) => {
   dt.items.add(files[0])
   pdf2imgFileInput.files = dt.files
   pdf2imgFileInput.dispatchEvent(new Event("change"))
+})
+
+// ===== Watermark PDF =====
+const wmFileInput = document.getElementById("wmFile")
+const wmTextInput = document.getElementById("wmText")
+const wmSizeInput = document.getElementById("wmSize")
+const wmSizeVal = document.getElementById("wmSizeVal")
+const wmOpacityInput = document.getElementById("wmOpacity")
+const wmOpacityVal = document.getElementById("wmOpacityVal")
+const wmColorInput = document.getElementById("wmColor")
+const wmAngleSelect = document.getElementById("wmAngle")
+const wmLayoutSelect = document.getElementById("wmLayout")
+const wmPagesSelect = document.getElementById("wmPages")
+const wmControls = document.getElementById("wmControls")
+const wmPreviewWrap = document.getElementById("wmPreviewWrap")
+const wmPreviewCanvas = document.getElementById("wmPreview")
+const wmBtn = document.getElementById("wmBtn")
+const wmStatus = document.getElementById("wmStatus")
+const clearWm = document.getElementById("clearWm")
+const wmCard = document.getElementById("wmCard")
+let wmFileRef = null
+let wmBaseCanvas = null
+
+function wmMarkCenters() {
+  if (wmLayoutSelect.value === "tile") {
+    const pts = []
+    for (const cy of [1 / 6, 1 / 2, 5 / 6]) {
+      for (const cx of [1 / 6, 1 / 2, 5 / 6]) pts.push({ x: cx, y: cy })
+    }
+    return pts
+  }
+  return [{ x: 0.5, y: 0.5 }]
+}
+
+function drawWmPreview() {
+  if (!wmBaseCanvas) return
+  wmPreviewCanvas.width = wmBaseCanvas.width
+  wmPreviewCanvas.height = wmBaseCanvas.height
+  const ctx = wmPreviewCanvas.getContext("2d")
+  ctx.drawImage(wmBaseCanvas, 0, 0)
+  const text = wmTextInput.value.trim()
+  if (!text) return
+  const cw = wmPreviewCanvas.width
+  const ch = wmPreviewCanvas.height
+  const scale = cw / wmBaseCanvas._pageW
+  const angle = parseFloat(wmAngleSelect.value) * Math.PI / 180
+  ctx.save()
+  ctx.globalAlpha = parseInt(wmOpacityInput.value, 10) / 100
+  ctx.fillStyle = wmColorInput.value
+  ctx.font = (parseInt(wmSizeInput.value, 10) * scale) + "px sans-serif"
+  ctx.textAlign = "center"
+  ctx.textBaseline = "middle"
+  for (const c of wmMarkCenters()) {
+    ctx.save()
+    ctx.translate(c.x * cw, c.y * ch)
+    ctx.rotate(-angle)
+    ctx.fillText(text, 0, 0)
+    ctx.restore()
+  }
+  ctx.restore()
+}
+
+async function loadWmPreview() {
+  wmBaseCanvas = null
+  if (!wmFileRef) {
+    wmControls.classList.add("hidden")
+    wmPreviewWrap.classList.add("hidden")
+    return
+  }
+  try {
+    const buffer = await wmFileRef.arrayBuffer()
+    const pdf = await pdfjsLib.getDocument({ data: buffer }).promise
+    const page = await pdf.getPage(1)
+    const vp0 = page.getViewport({ scale: 1 })
+    const scale = Math.min(460 / vp0.width, 360 / vp0.height, 1.5)
+    const vp = page.getViewport({ scale })
+    const cv = document.createElement("canvas")
+    cv.width = vp.width
+    cv.height = vp.height
+    cv._pageW = vp0.width
+    await page.render({ canvasContext: cv.getContext("2d"), viewport: vp }).promise
+    wmBaseCanvas = cv
+    wmControls.classList.remove("hidden")
+    wmPreviewWrap.classList.remove("hidden")
+    drawWmPreview()
+  } catch (e) {
+    wmControls.classList.add("hidden")
+    wmPreviewWrap.classList.add("hidden")
+    if (e && e.name === "PasswordException") {
+      setStatus(wmStatus, "This PDF is password-protected. Remove the password first with Protect PDF.", "error")
+    } else {
+      setStatus(wmStatus, "Failed to load preview.", "error")
+    }
+  }
+}
+
+wmFileInput.addEventListener("change", (e) => {
+  wmFileRef = e.target.files && e.target.files[0] ? e.target.files[0] : null
+  setStatus(wmStatus, "")
+  if (wmFileRef) clearWm.classList.remove("hidden")
+  else clearWm.classList.add("hidden")
+  loadWmPreview()
+})
+clearWm.addEventListener("click", (e) => {
+  e.preventDefault()
+  wmFileInput.value = ""
+  wmFileRef = null
+  clearWm.classList.add("hidden")
+  setStatus(wmStatus, "")
+  loadWmPreview()
+})
+wmTextInput.addEventListener("input", drawWmPreview)
+wmSizeInput.addEventListener("input", () => { wmSizeVal.textContent = wmSizeInput.value; drawWmPreview() })
+wmOpacityInput.addEventListener("input", () => { wmOpacityVal.textContent = wmOpacityInput.value; drawWmPreview() })
+wmColorInput.addEventListener("input", drawWmPreview)
+wmAngleSelect.addEventListener("change", drawWmPreview)
+wmLayoutSelect.addEventListener("change", drawWmPreview)
+
+wmBtn.addEventListener("click", async () => {
+  if (!wmFileRef) {
+    setStatus(wmStatus, "Please select a PDF.", "error")
+    track("wm_missing_file")
+    return
+  }
+  const text = wmTextInput.value.trim()
+  if (!text) {
+    setStatus(wmStatus, "Please enter watermark text.", "error")
+    track("wm_missing_text")
+    return
+  }
+  if (wmFileRef.size > MAX_FILE_SIZE) {
+    setStatus(wmStatus, "File is too large (max 100 MB).", "error")
+    return
+  }
+  setBusy(wmBtn, true, "Add Watermark", "Processing...")
+  setStatus(wmStatus, "")
+  try {
+    track("wm_start")
+    const buffer = await wmFileRef.arrayBuffer()
+    const src = await PDFLib.PDFDocument.load(buffer)
+    const out = await PDFLib.PDFDocument.create()
+    const total = src.getPageCount()
+    const indices = Array.from({ length: total }, (_, i) => i)
+    const pages = await out.copyPages(src, indices)
+    const sizePt = parseInt(wmSizeInput.value, 10) || 48
+    const opacity = (parseInt(wmOpacityInput.value, 10) || 25) / 100
+    const angleDeg = parseFloat(wmAngleSelect.value) || 0
+    const theta = angleDeg * Math.PI / 180
+    const R = 3
+    const fontPx = sizePt * R
+    const cv = document.createElement("canvas")
+    let ctx = cv.getContext("2d")
+    ctx.font = fontPx + "px sans-serif"
+    const tw = Math.ceil(ctx.measureText(text).width)
+    const pad = Math.ceil(fontPx * 0.15)
+    cv.width = tw + pad * 2
+    cv.height = Math.ceil(fontPx * 1.4)
+    ctx = cv.getContext("2d")
+    ctx.font = fontPx + "px sans-serif"
+    ctx.fillStyle = wmColorInput.value
+    ctx.textAlign = "center"
+    ctx.textBaseline = "middle"
+    ctx.fillText(text, cv.width / 2, cv.height / 2)
+    const img = await out.embedPng(cv.toDataURL("image/png"))
+    const Wt = cv.width / R
+    const Ht = cv.height / R
+    const centers = wmMarkCenters()
+    const firstOnly = wmPagesSelect.value === "first"
+    for (let i = 0; i < pages.length; i++) {
+      let p = pages[i]
+      const marked = !firstOnly || i === 0
+      if (marked) {
+        p = await addPageBaked(out, p)
+        const w = p.getWidth()
+        const h = p.getHeight()
+        for (const c of centers) {
+          const px = c.x * w
+          const py = (1 - c.y) * h
+          const ax = px - (Wt / 2 * Math.cos(theta) - Ht / 2 * Math.sin(theta))
+          const ay = py - (Wt / 2 * Math.sin(theta) + Ht / 2 * Math.cos(theta))
+          p.drawImage(img, { x: ax, y: ay, width: Wt, height: Ht, rotate: PDFLib.degrees(angleDeg), opacity })
+        }
+      } else {
+        out.addPage(p)
+      }
+    }
+    const bytes = await out.save()
+    const base = wmFileRef.name.replace(/\.pdf$/i, "")
+    downloadBytes(bytes, base + "_watermarked.pdf")
+    setStatus(wmStatus, "Done. Watermark added to " + (firstOnly ? "1 page" : total + " pages") + ".", "success")
+    track("wm_success", { pages: firstOnly ? 1 : total })
+  } catch (err) {
+    console.error("watermark error:", err)
+    if (String(err.message || "").includes("encrypted")) {
+      setStatus(wmStatus, "This PDF is password-protected. Remove the password first with Protect PDF.", "error")
+    } else {
+      setStatus(wmStatus, "Failed to process file.", "error")
+    }
+    track("wm_error")
+  } finally {
+    setBusy(wmBtn, false, "Add Watermark", "Processing...")
+  }
+})
+
+wmCard.addEventListener("dragover", (e) => handleDragOver(wmCard, e))
+wmCard.addEventListener("dragenter", (e) => handleDragOver(wmCard, e))
+wmCard.addEventListener("dragleave", (e) => handleDragLeave(wmCard, e))
+wmCard.addEventListener("drop", (e) => {
+  e.preventDefault()
+  e.stopPropagation()
+  wmCard.classList.remove("drag-over")
+  const files = Array.from(e.dataTransfer.files || []).filter(f => f.type === "application/pdf" || f.name.endsWith(".pdf"))
+  if (files.length === 0) return
+  const dt = new DataTransfer()
+  dt.items.add(files[0])
+  wmFileInput.files = dt.files
+  wmFileInput.dispatchEvent(new Event("change"))
+})
+
+// ===== Protect PDF (qpdf-wasm, lazy loaded) =====
+const protModeSelect = document.getElementById("protMode")
+const protFileInput = document.getElementById("protFile")
+const protPwInput = document.getElementById("protPw")
+const protPwLabel = document.getElementById("protPwLabel")
+const protPw2Input = document.getElementById("protPw2")
+const protPw2Field = document.getElementById("protPw2Field")
+const protPerms = document.getElementById("protPerms")
+const protPrintCheck = document.getElementById("protPrint")
+const protCopyCheck = document.getElementById("protCopy")
+const protBtn = document.getElementById("protBtn")
+const protStatus = document.getElementById("protStatus")
+const clearProt = document.getElementById("clearProt")
+const protCard = document.getElementById("protCard")
+let protFileRef = null
+const QPDF_CDN = "https://cdn.jsdelivr.net/npm/@jspawn/qpdf-wasm@0.0.2/"
+let qpdfScriptPromise = null
+
+function loadQpdfScript() {
+  if (!qpdfScriptPromise) {
+    qpdfScriptPromise = new Promise((resolve, reject) => {
+      const s = document.createElement("script")
+      s.src = QPDF_CDN + "qpdf.js"
+      s.onload = resolve
+      s.onerror = () => { qpdfScriptPromise = null; reject(new Error("Failed to load encryption engine. Check your connection.")) }
+      document.head.appendChild(s)
+    })
+  }
+  return qpdfScriptPromise
+}
+
+async function runQpdf(args, inputBytes) {
+  await loadQpdfScript()
+  const errs = []
+  const mod = await window.Module({
+    noInitialRun: true,
+    locateFile: (p) => QPDF_CDN + p,
+    print: () => {},
+    printErr: (t) => { errs.push(t) },
+  })
+  if (inputBytes) mod.FS.writeFile("in.pdf", inputBytes)
+  let rc = 0
+  try { rc = mod.callMain(args) } catch (e) { rc = e && e.status != null ? e.status : 1 }
+  let out = null
+  try { out = new Uint8Array(mod.FS.readFile(args[args.length - 1])) } catch (_) {}
+  return { rc, out, errs }
+}
+
+function looksEncrypted(bytes) {
+  const dec = new TextDecoder("latin1")
+  const head = dec.decode(bytes.slice(0, 4096))
+  const tail = dec.decode(bytes.slice(Math.max(0, bytes.length - 4096)))
+  return head.indexOf("/Encrypt") >= 0 || tail.indexOf("/Encrypt") >= 0
+}
+
+function updateProtMode() {
+  const enc = protModeSelect.value === "encrypt"
+  protPw2Field.classList.toggle("hidden", !enc)
+  protPerms.classList.toggle("hidden", !enc)
+  protPwLabel.textContent = enc ? "Password" : "Current password"
+  protPwInput.placeholder = enc ? "Password" : "Password of this PDF"
+  protBtn.textContent = enc ? "Protect PDF" : "Remove Password"
+  setStatus(protStatus, "")
+}
+protModeSelect.addEventListener("change", updateProtMode)
+
+protFileInput.addEventListener("change", (e) => {
+  protFileRef = e.target.files && e.target.files[0] ? e.target.files[0] : null
+  setStatus(protStatus, "")
+  if (protFileRef) clearProt.classList.remove("hidden")
+  else clearProt.classList.add("hidden")
+})
+clearProt.addEventListener("click", (e) => {
+  e.preventDefault()
+  protFileInput.value = ""
+  protFileRef = null
+  clearProt.classList.add("hidden")
+  setStatus(protStatus, "")
+})
+
+protBtn.addEventListener("click", async () => {
+  const enc = protModeSelect.value === "encrypt"
+  if (!protFileRef) {
+    setStatus(protStatus, "Please select a PDF.", "error")
+    track("prot_missing_file")
+    return
+  }
+  if (protFileRef.size > MAX_FILE_SIZE) {
+    setStatus(protStatus, "File is too large (max 100 MB).", "error")
+    return
+  }
+  const pw = protPwInput.value
+  if (enc) {
+    if (!pw) {
+      setStatus(protStatus, "Please enter a password.", "error")
+      return
+    }
+    if (pw !== protPw2Input.value) {
+      setStatus(protStatus, "Passwords do not match.", "error")
+      return
+    }
+  }
+  const idleText = enc ? "Protect PDF" : "Remove Password"
+  setBusy(protBtn, true, idleText, "Processing...")
+  setStatus(protStatus, "Loading encryption engine (first use only)\u2026")
+  try {
+    const buffer = new Uint8Array(await protFileRef.arrayBuffer())
+    const base = protFileRef.name.replace(/\.pdf$/i, "")
+    if (enc) {
+      track("prot_encrypt_start")
+      setStatus(protStatus, "Encrypting\u2026")
+      const args = ["--encrypt", pw, pw, "256",
+        "--print=" + (protPrintCheck.checked ? "full" : "none"),
+        "--extract=" + (protCopyCheck.checked ? "y" : "n"),
+        "--", "in.pdf", "out.pdf"]
+      const { rc, out } = await runQpdf(args, buffer)
+      if (rc !== 0 || !out) throw new Error("Encryption failed.")
+      downloadBytes(out, base + "_protected.pdf")
+      setStatus(protStatus, "Done. AES-256 password added.", "success")
+      track("prot_encrypt_success")
+    } else {
+      track("prot_decrypt_start")
+      if (!looksEncrypted(buffer)) {
+        setStatus(protStatus, "This PDF has no password.", "success")
+        return
+      }
+      setStatus(protStatus, "Removing password\u2026")
+      const { rc, out } = await runQpdf(["--decrypt", "--password=" + pw, "in.pdf", "out.pdf"], buffer)
+      if (rc !== 0 || !out) {
+        setStatus(protStatus, "Wrong password (or the file is damaged). Please try again.", "error")
+        track("prot_decrypt_wrong_password")
+        return
+      }
+      downloadBytes(out, base + "_unlocked.pdf")
+      setStatus(protStatus, "Done. Password removed.", "success")
+      track("prot_decrypt_success")
+    }
+    protPwInput.value = ""
+    protPw2Input.value = ""
+  } catch (err) {
+    console.error("protect error:", err)
+    setStatus(protStatus, err.message || "Failed to process file.", "error")
+    track("prot_error")
+  } finally {
+    setBusy(protBtn, false, idleText, "Processing...")
+  }
+})
+
+protCard.addEventListener("dragover", (e) => handleDragOver(protCard, e))
+protCard.addEventListener("dragenter", (e) => handleDragOver(protCard, e))
+protCard.addEventListener("dragleave", (e) => handleDragLeave(protCard, e))
+protCard.addEventListener("drop", (e) => {
+  e.preventDefault()
+  e.stopPropagation()
+  protCard.classList.remove("drag-over")
+  const files = Array.from(e.dataTransfer.files || []).filter(f => f.type === "application/pdf" || f.name.endsWith(".pdf"))
+  if (files.length === 0) return
+  const dt = new DataTransfer()
+  dt.items.add(files[0])
+  protFileInput.files = dt.files
+  protFileInput.dispatchEvent(new Event("change"))
 })
 
