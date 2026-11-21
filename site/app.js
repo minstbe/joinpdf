@@ -2170,6 +2170,8 @@ const orgCard = document.getElementById("orgCard")
 const orgReset = document.getElementById("orgReset")
 let orgFileRef = null
 let orgItems = []
+let orgAll = []
+let orgPdf = null
 let orgTotal = 0
 let orgDragIdx = null
 
@@ -2230,6 +2232,8 @@ function renderOrgGrid() {
 }
 async function loadOrgPages() {
   orgItems = []
+  orgAll = []
+  orgPdf = null
   orgTotal = 0
   if (!orgFileRef) {
     orgArea.classList.add("hidden")
@@ -2242,6 +2246,7 @@ async function loadOrgPages() {
     const pdf = await pdfjsLib.getDocument({ data: buffer }).promise
     orgGrid.innerHTML = ""
     orgTotal = pdf.numPages
+    orgPdf = pdf
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i)
       const vp = page.getViewport({ scale: 0.35 })
@@ -2251,6 +2256,7 @@ async function loadOrgPages() {
       await page.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise
       orgItems.push({ orig: i - 1, canvas })
     }
+    orgAll = orgItems.slice()
     renderOrgGrid()
   } catch (e) {
     orgArea.classList.add("hidden")
@@ -2277,8 +2283,37 @@ clearOrg.addEventListener("click", (e) => {
   loadOrgPages()
 })
 orgReset.addEventListener("click", () => {
-  orgItems.sort((a, b) => a.orig - b.orig)
+  orgItems = orgAll.slice()
   renderOrgGrid()
+})
+const orgBlank = document.getElementById("orgBlank")
+orgBlank.addEventListener("click", async () => {
+  if (!orgItems.length || !orgPdf) return
+  setBusy(orgBlank, true, "Detect blank pages", "Detecting...")
+  try {
+    const blanks = []
+    for (const it of orgItems) {
+      const page = await orgPdf.getPage(it.orig + 1)
+      const vp = page.getViewport({ scale: 1 })
+      const cv = document.createElement("canvas")
+      cv.width = vp.width
+      cv.height = vp.height
+      await page.render({ canvasContext: cv.getContext("2d"), viewport: vp }).promise
+      if (inkCoverage(cv) < 0.001) blanks.push(it)
+    }
+    if (!blanks.length) {
+      setStatus(orgStatus, "No blank pages detected.", "success")
+      return
+    }
+    orgItems = orgItems.filter(it => !blanks.includes(it))
+    renderOrgGrid()
+    setStatus(orgStatus, "Removed " + blanks.length + " blank page(s). Reset pages restores them.", "success")
+    track("org_blank", { removed: blanks.length })
+  } catch (e) {
+    setStatus(orgStatus, "Blank detection failed.", "error")
+  } finally {
+    setBusy(orgBlank, false, "Detect blank pages", "Detecting...")
+  }
 })
 orgBtn.addEventListener("click", async () => {
   if (!orgFileRef) {
@@ -2550,6 +2585,17 @@ function encryptedMsg(err) {
   return String(err.message || "").includes("encrypted") || (err && err.name === "PasswordException")
 }
 const ENCRYPTED_HINT = "This PDF is password-protected. Remove the password first with Protect PDF."
+function inkCoverage(canvas) {
+  const ctx = canvas.getContext("2d")
+  const { width: w, height: h } = canvas
+  if (!w || !h) return 1
+  const data = ctx.getImageData(0, 0, w, h).data
+  let ink = 0
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] > 10 && data[i] + data[i + 1] + data[i + 2] < 735) ink++
+  }
+  return ink / (w * h)
+}
 
 // ===== Sign PDF =====
 const sigFileInput = document.getElementById("sigFile")
@@ -2809,6 +2855,7 @@ const cropPreviewBox = document.getElementById("cropPreviewBox")
 const cropPreviewCanvas = document.getElementById("cropPreview")
 const cropRectEl = document.getElementById("cropRect")
 const cropReset = document.getElementById("cropReset")
+const cropAuto = document.getElementById("cropAuto")
 const cropBtn = document.getElementById("cropBtn")
 const cropStatus = document.getElementById("cropStatus")
 const clearCrop = document.getElementById("clearCrop")
@@ -2970,5 +3017,484 @@ cropCard.addEventListener("drop", (e) => {
   dt.items.add(files[0])
   cropFileInput.files = dt.files
   cropFileInput.dispatchEvent(new Event("change"))
+})
+cropAuto.addEventListener("click", () => {
+  if (!cropPdf) return
+  const cv = cropPreviewCanvas
+  const { width: w, height: h } = cv
+  const data = cv.getContext("2d").getImageData(0, 0, w, h).data
+  let x0 = w, y0 = h, x1 = -1, y1 = -1
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4
+      if (data[i + 3] > 10 && data[i] + data[i + 1] + data[i + 2] < 735) {
+        if (x < x0) x0 = x
+        if (x > x1) x1 = x
+        if (y < y0) y0 = y
+        if (y > y1) y1 = y
+      }
+    }
+  }
+  if (x1 < 0) {
+    setStatus(cropStatus, "This page looks blank — nothing to trim.", "error")
+    return
+  }
+  const pad = 3
+  x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad)
+  x1 = Math.min(w - 1, x1 + pad); y1 = Math.min(h - 1, y1 + pad)
+  cropRect = { x: x0 / w, y: y0 / h, w: (x1 - x0 + 1) / w, h: (y1 - y0 + 1) / h }
+  clampCrop()
+  positionCropRect()
+  setStatus(cropStatus, "Frame fitted to content — review, then crop.", "success")
+  track("crop_auto")
+})
+
+// ===== PDF to Text =====
+const txtFileInput = document.getElementById("txtFile")
+const txtControls = document.getElementById("txtControls")
+const txtInfo = document.getElementById("txtInfo")
+const txtOut = document.getElementById("txtOut")
+const txtCopy = document.getElementById("txtCopy")
+const txtDownload = document.getElementById("txtDownload")
+const txtStatus = document.getElementById("txtStatus")
+const clearTxt = document.getElementById("clearTxt")
+const txtCard = document.getElementById("txtCard")
+let txtFileRef = null
+
+async function loadTxt() {
+  if (!txtFileRef) {
+    txtControls.classList.add("hidden")
+    txtOut.value = ""
+    return
+  }
+  try {
+    const buffer = await txtFileRef.arrayBuffer()
+    const pdf = await pdfjsLib.getDocument({ data: buffer }).promise
+    const parts = []
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i)
+      const tc = await page.getTextContent()
+      let pageText = ""
+      for (const it of tc.items) {
+        if (typeof it.str !== "string") continue
+        pageText += it.str + (it.hasEOL ? "\n" : " ")
+      }
+      parts.push(pageText.replace(/[ \t]+\n/g, "\n").trim())
+    }
+    const text = parts.join("\n\n")
+    txtOut.value = text
+    txtInfo.textContent = pdf.numPages + " page(s) · " + text.length.toLocaleString() + " characters"
+    txtControls.classList.remove("hidden")
+    setStatus(txtStatus, text.trim() ? "" : "No selectable text found — this PDF may be scanned images.", text.trim() ? "" : "error")
+  } catch (e) {
+    txtControls.classList.add("hidden")
+    setStatus(txtStatus, encryptedMsg(e) ? ENCRYPTED_HINT : "Failed to load file.", "error")
+  }
+}
+txtFileInput.addEventListener("change", (e) => {
+  txtFileRef = e.target.files && e.target.files[0] ? e.target.files[0] : null
+  setStatus(txtStatus, "")
+  if (txtFileRef) clearTxt.classList.remove("hidden")
+  else clearTxt.classList.add("hidden")
+  loadTxt()
+})
+clearTxt.addEventListener("click", (e) => {
+  e.preventDefault()
+  txtFileInput.value = ""
+  txtFileRef = null
+  clearTxt.classList.add("hidden")
+  setStatus(txtStatus, "")
+  loadTxt()
+})
+txtCopy.addEventListener("click", async () => {
+  if (!txtOut.value) {
+    setStatus(txtStatus, "Nothing to copy yet — select a PDF first.", "error")
+    return
+  }
+  let ok = false
+  try { await navigator.clipboard.writeText(txtOut.value); ok = true } catch (_) {
+    try { txtOut.focus(); txtOut.select(); ok = document.execCommand("copy") } catch (_) { ok = false }
+  }
+  setStatus(txtStatus, ok ? "Copied to clipboard." : "Copy failed — select the text manually.", ok ? "success" : "error")
+  track("txt_copy", { ok })
+})
+txtDownload.addEventListener("click", () => {
+  if (!txtOut.value) {
+    setStatus(txtStatus, "Nothing to download yet — select a PDF first.", "error")
+    return
+  }
+  const base = txtFileRef ? txtFileRef.name.replace(/\.pdf$/i, "") : "extracted"
+  downloadBytes(new TextEncoder().encode(txtOut.value), base + ".txt")
+  setStatus(txtStatus, "Done. Text file downloaded.", "success")
+  track("txt_download")
+})
+txtCard.addEventListener("dragover", (e) => handleDragOver(txtCard, e))
+txtCard.addEventListener("dragenter", (e) => handleDragOver(txtCard, e))
+txtCard.addEventListener("dragleave", (e) => handleDragLeave(txtCard, e))
+txtCard.addEventListener("drop", (e) => {
+  e.preventDefault()
+  e.stopPropagation()
+  txtCard.classList.remove("drag-over")
+  const files = Array.from(e.dataTransfer.files || []).filter(f => f.type === "application/pdf" || f.name.endsWith(".pdf"))
+  if (files.length === 0) return
+  const dt = new DataTransfer()
+  dt.items.add(files[0])
+  txtFileInput.files = dt.files
+  txtFileInput.dispatchEvent(new Event("change"))
+})
+
+// ===== Compress PDF =====
+const cmpFileInput = document.getElementById("cmpFile")
+const cmpOptsWrap = document.getElementById("cmpOptsWrap")
+const cmpModeSelect = document.getElementById("cmpMode")
+const cmpQualityField = document.getElementById("cmpQualityField")
+const cmpQualityInput = document.getElementById("cmpQuality")
+const cmpQualityVal = document.getElementById("cmpQualityVal")
+const cmpInfo = document.getElementById("cmpInfo")
+const cmpBtn = document.getElementById("cmpBtn")
+const cmpStatus = document.getElementById("cmpStatus")
+const clearCmp = document.getElementById("clearCmp")
+const cmpCard = document.getElementById("cmpCard")
+let cmpFileRef = null
+
+cmpModeSelect.addEventListener("change", () => {
+  cmpQualityField.classList.toggle("hidden", cmpModeSelect.value !== "strong")
+})
+cmpQualityInput.addEventListener("input", () => {
+  cmpQualityVal.textContent = cmpQualityInput.value
+})
+cmpFileInput.addEventListener("change", (e) => {
+  cmpFileRef = e.target.files && e.target.files[0] ? e.target.files[0] : null
+  setStatus(cmpStatus, "")
+  if (cmpFileRef) clearCmp.classList.remove("hidden")
+  else clearCmp.classList.add("hidden")
+  cmpOptsWrap.classList.toggle("hidden", !cmpFileRef)
+  if (cmpFileRef) cmpInfo.textContent = "Original size: " + formatSize(cmpFileRef.size)
+})
+clearCmp.addEventListener("click", (e) => {
+  e.preventDefault()
+  cmpFileInput.value = ""
+  cmpFileRef = null
+  clearCmp.classList.add("hidden")
+  cmpOptsWrap.classList.add("hidden")
+  setStatus(cmpStatus, "")
+})
+
+async function recompressImages(doc, quality) {
+  const scale = quality <= 40 ? 0.7 : quality <= 70 ? 0.85 : 1
+  let changed = 0
+  const seen = new Set()
+  for (const page of doc.getPages()) {
+    const resRef = page.node.get(PDFLib.PDFName.of("Resources"))
+    const res = resRef instanceof PDFLib.PDFRef ? doc.context.lookup(resRef) : resRef
+    if (!res || !res.get) continue
+    const xoRef = res.get(PDFLib.PDFName.of("XObject"))
+    const xo = xoRef instanceof PDFLib.PDFRef ? doc.context.lookup(xoRef) : xoRef
+    if (!xo || !xo.entries) continue
+    for (const [, ref] of xo.entries()) {
+      const key = ref instanceof PDFLib.PDFRef ? ref.toString() : null
+      if (key) {
+        if (seen.has(key)) continue
+        seen.add(key)
+      }
+      const st = ref instanceof PDFLib.PDFRef ? doc.context.lookup(ref) : ref
+      if (!st || !st.dict || !st.contents) continue
+      const d = st.dict
+      if (d.get(PDFLib.PDFName.of("Subtype")) !== PDFLib.PDFName.of("Image")) continue
+      const filt = d.get(PDFLib.PDFName.of("Filter"))
+      const isDct = filt === PDFLib.PDFName.of("DCTDecode") ||
+        (filt instanceof PDFLib.PDFArray && filt.size() === 1 && filt.get(0) === PDFLib.PDFName.of("DCTDecode"))
+      if (!isDct) continue
+      if (d.get(PDFLib.PDFName.of("SMask"))) continue
+      const cs = d.get(PDFLib.PDFName.of("ColorSpace"))
+      if (cs !== PDFLib.PDFName.of("DeviceRGB") && cs !== PDFLib.PDFName.of("DeviceGray")) continue
+      const bpc = d.get(PDFLib.PDFName.of("BitsPerComponent"))
+      if (bpc && Number(String(bpc)) !== 8) continue
+      const w = Number(String(d.get(PDFLib.PDFName.of("Width"))))
+      const h = Number(String(d.get(PDFLib.PDFName.of("Height"))))
+      if (!w || !h) continue
+      try {
+        const bmp = await createImageBitmap(new Blob([st.contents], { type: "image/jpeg" }))
+        const nw = Math.max(1, Math.round(w * scale))
+        const nh = Math.max(1, Math.round(h * scale))
+        const cv = document.createElement("canvas")
+        cv.width = nw
+        cv.height = nh
+        const cx = cv.getContext("2d")
+        cx.fillStyle = "#fff"
+        cx.fillRect(0, 0, nw, nh)
+        cx.drawImage(bmp, 0, 0, nw, nh)
+        bmp.close()
+        const blob = await new Promise(r => cv.toBlob(r, "image/jpeg", quality / 100))
+        if (!blob) continue
+        const buf = new Uint8Array(await blob.arrayBuffer())
+        if (buf.length >= st.contents.length) continue
+        st.contents = buf
+        d.set(PDFLib.PDFName.of("Width"), PDFLib.PDFNumber.of(nw))
+        d.set(PDFLib.PDFName.of("Height"), PDFLib.PDFNumber.of(nh))
+        changed++
+      } catch (_) { /* unsupported image variant — leave untouched */ }
+    }
+  }
+  return changed
+}
+
+cmpBtn.addEventListener("click", async () => {
+  if (!cmpFileRef) {
+    setStatus(cmpStatus, "Please select a PDF.", "error")
+    track("cmp_missing_file")
+    return
+  }
+  if (cmpFileRef.size > MAX_FILE_SIZE) {
+    setStatus(cmpStatus, "File is too large (max 100 MB).", "error")
+    return
+  }
+  const mode = cmpModeSelect.value
+  setBusy(cmpBtn, true, "Compress PDF", "Processing...")
+  setStatus(cmpStatus, "")
+  try {
+    track("cmp_start", { mode })
+    const buffer = new Uint8Array(await cmpFileRef.arrayBuffer())
+    if (looksEncrypted(buffer)) {
+      setStatus(cmpStatus, ENCRYPTED_HINT, "error")
+      return
+    }
+    const base = cmpFileRef.name.replace(/\.pdf$/i, "")
+    const qArgs = ["--recompress-flate", "--compression-level=9", "--object-streams=generate", "--stream-data=compress", "--", "in.pdf", "out.pdf"]
+    let payload = buffer
+    let reencoded = 0
+    if (mode === "strong") {
+      setStatus(cmpStatus, "Re-encoding images…")
+      const doc = await PDFLib.PDFDocument.load(buffer)
+      reencoded = await recompressImages(doc, parseInt(cmpQualityInput.value, 10) || 60)
+      payload = new Uint8Array(await doc.save())
+    }
+    setStatus(cmpStatus, mode === "strong" ? "Optimizing structure…" : "Compressing (loading engine on first use)…")
+    const { rc, out } = await runQpdf(qArgs, payload)
+    const finalBytes = (rc === 0 && out) ? out : payload
+    if (finalBytes.length >= buffer.length) {
+      setStatus(cmpStatus, "This PDF is already well optimized — no savings possible" + (mode === "lossless" ? " without quality loss." : " at these settings."), "success")
+      track("cmp_nogain", { mode })
+      return
+    }
+    downloadBytes(finalBytes, base + "_compressed.pdf")
+    const pct = Math.round((1 - finalBytes.length / buffer.length) * 100)
+    setStatus(cmpStatus, "Done. " + formatSize(buffer.length) + " → " + formatSize(finalBytes.length) + " (−" + pct + "%)" + (reencoded ? ", " + reencoded + " image(s) re-encoded." : "."), "success")
+    track("cmp_success", { mode, before: buffer.length, after: finalBytes.length, reencoded })
+  } catch (err) {
+    console.error("compress error:", err)
+    setStatus(cmpStatus, encryptedMsg(err) ? ENCRYPTED_HINT : "Failed to process file.", "error")
+    track("cmp_error")
+  } finally {
+    setBusy(cmpBtn, false, "Compress PDF", "Processing...")
+  }
+})
+cmpCard.addEventListener("dragover", (e) => handleDragOver(cmpCard, e))
+cmpCard.addEventListener("dragenter", (e) => handleDragOver(cmpCard, e))
+cmpCard.addEventListener("dragleave", (e) => handleDragLeave(cmpCard, e))
+cmpCard.addEventListener("drop", (e) => {
+  e.preventDefault()
+  e.stopPropagation()
+  cmpCard.classList.remove("drag-over")
+  const files = Array.from(e.dataTransfer.files || []).filter(f => f.type === "application/pdf" || f.name.endsWith(".pdf"))
+  if (files.length === 0) return
+  const dt = new DataTransfer()
+  dt.items.add(files[0])
+  cmpFileInput.files = dt.files
+  cmpFileInput.dispatchEvent(new Event("change"))
+})
+
+// ===== Fill & Flatten Forms =====
+const formFileInput = document.getElementById("formFile")
+const formWrap = document.getElementById("formWrap")
+const formInfo = document.getElementById("formInfo")
+const formFields = document.getElementById("formFields")
+const formFlatten = document.getElementById("formFlatten")
+const formBtn = document.getElementById("formBtn")
+const formStatus = document.getElementById("formStatus")
+const clearForm = document.getElementById("clearForm")
+const formCard = document.getElementById("formCard")
+let formFileRef = null
+let formEntries = []
+
+function prettyFieldName(n) {
+  const seg = n.split(/[.[\]]/).filter(Boolean).pop() || n
+  return seg.replace(/[_-]+/g, " ")
+}
+function buildFormUI(fields) {
+  formFields.innerHTML = ""
+  formEntries = []
+  for (const f of fields) {
+    const name = f.getName()
+    const wrap = document.createElement("div")
+    wrap.className = "field"
+    const label = document.createElement("label")
+    label.title = name
+    let el = null
+    let kind = null
+    if (f instanceof PDFLib.PDFTextField) {
+      kind = "text"
+      if (f.isMultiline()) { el = document.createElement("textarea"); el.rows = 2 }
+      else { el = document.createElement("input"); el.type = "text" }
+      el.value = f.getText() || ""
+    } else if (f instanceof PDFLib.PDFCheckBox) {
+      kind = "check"
+      el = document.createElement("input")
+      el.type = "checkbox"
+      el.checked = f.isChecked()
+    } else if (f instanceof PDFLib.PDFDropdown) {
+      kind = "dropdown"
+      el = document.createElement("select")
+      for (const o of f.getOptions()) {
+        const op = document.createElement("option")
+        op.value = o
+        op.textContent = o
+        el.appendChild(op)
+      }
+      el.value = (f.getSelected() || [])[0] || ""
+    } else if (f instanceof PDFLib.PDFOptionList) {
+      kind = "list"
+      el = document.createElement("select")
+      el.multiple = true
+      el.size = 4
+      for (const o of f.getOptions()) {
+        const op = document.createElement("option")
+        op.value = o
+        op.textContent = o
+        el.appendChild(op)
+      }
+      const sel = f.getSelected() || []
+      for (const op of el.options) op.selected = sel.includes(op.value)
+    } else if (f instanceof PDFLib.PDFRadioGroup) {
+      kind = "radio"
+      el = document.createElement("select")
+      const none = document.createElement("option")
+      none.value = ""
+      none.textContent = "— not selected —"
+      el.appendChild(none)
+      for (const o of f.getOptions()) {
+        const op = document.createElement("option")
+        op.value = o
+        op.textContent = o
+        el.appendChild(op)
+      }
+      el.value = f.getSelected() || ""
+    } else {
+      continue
+    }
+    const typeHint = document.createElement("span")
+    typeHint.className = "ff-type"
+    typeHint.textContent = kind === "check" ? "" : kind
+    if (kind === "check") {
+      label.className = "check-label"
+      label.appendChild(el)
+      label.appendChild(document.createTextNode(" " + prettyFieldName(name)))
+    } else {
+      label.appendChild(document.createTextNode(prettyFieldName(name)))
+      label.appendChild(typeHint)
+      label.appendChild(el)
+    }
+    wrap.appendChild(label)
+    formFields.appendChild(wrap)
+    formEntries.push({ name, kind, el })
+  }
+  formInfo.textContent = formEntries.length ? formEntries.length + " fillable field(s)" : "No fillable form fields in this PDF."
+}
+async function loadForm() {
+  formEntries = []
+  if (!formFileRef) {
+    formWrap.classList.add("hidden")
+    return
+  }
+  try {
+    const buffer = await formFileRef.arrayBuffer()
+    const doc = await PDFLib.PDFDocument.load(buffer)
+    buildFormUI(doc.getForm().getFields())
+    formWrap.classList.remove("hidden")
+  } catch (e) {
+    formWrap.classList.add("hidden")
+    setStatus(formStatus, encryptedMsg(e) ? ENCRYPTED_HINT : "Failed to load file.", "error")
+  }
+}
+formFileInput.addEventListener("change", (e) => {
+  formFileRef = e.target.files && e.target.files[0] ? e.target.files[0] : null
+  setStatus(formStatus, "")
+  if (formFileRef) clearForm.classList.remove("hidden")
+  else clearForm.classList.add("hidden")
+  loadForm()
+})
+clearForm.addEventListener("click", (e) => {
+  e.preventDefault()
+  formFileInput.value = ""
+  formFileRef = null
+  clearForm.classList.add("hidden")
+  setStatus(formStatus, "")
+  loadForm()
+})
+formBtn.addEventListener("click", async () => {
+  if (!formFileRef) {
+    setStatus(formStatus, "Please select a PDF.", "error")
+    track("form_missing_file")
+    return
+  }
+  if (!formEntries.length) {
+    setStatus(formStatus, "This PDF has no fillable form fields.", "error")
+    return
+  }
+  if (formFileRef.size > MAX_FILE_SIZE) {
+    setStatus(formStatus, "File is too large (max 100 MB).", "error")
+    return
+  }
+  setBusy(formBtn, true, "Save PDF", "Processing...")
+  setStatus(formStatus, "")
+  try {
+    track("form_start", { fields: formEntries.length, flatten: formFlatten.checked })
+    const buffer = await formFileRef.arrayBuffer()
+    const doc = await PDFLib.PDFDocument.load(buffer)
+    const form = doc.getForm()
+    const byName = new Map(form.getFields().map(f => [f.getName(), f]))
+    for (const en of formEntries) {
+      const f = byName.get(en.name)
+      if (!f) continue
+      if (en.kind === "text") f.setText(en.el.value)
+      else if (en.kind === "check") { if (en.el.checked) f.check(); else f.uncheck() }
+      else if (en.kind === "dropdown") { if (en.el.value) f.select(en.el.value) }
+      else if (en.kind === "list") f.select(...Array.from(en.el.selectedOptions).map(o => o.value))
+      else if (en.kind === "radio") { if (en.el.value) f.select(en.el.value) }
+    }
+    const font = await doc.embedFont(PDFLib.StandardFonts.Helvetica)
+    try {
+      form.updateFieldAppearances(font)
+    } catch (_) {
+      setStatus(formStatus, "Some field text uses characters the built-in font cannot render. Please use Latin characters.", "error")
+      return
+    }
+    if (formFlatten.checked) form.flatten()
+    const bytes = await doc.save()
+    const base = formFileRef.name.replace(/\.pdf$/i, "")
+    downloadBytes(bytes, base + "_filled.pdf")
+    setStatus(formStatus, "Done. " + formEntries.length + " field(s) saved" + (formFlatten.checked ? " and flattened." : " (still editable)."), "success")
+    track("form_success", { flatten: formFlatten.checked })
+  } catch (err) {
+    console.error("form error:", err)
+    setStatus(formStatus, encryptedMsg(err) ? ENCRYPTED_HINT : "Failed to process file.", "error")
+    track("form_error")
+  } finally {
+    setBusy(formBtn, false, "Save PDF", "Processing...")
+  }
+})
+formCard.addEventListener("dragover", (e) => handleDragOver(formCard, e))
+formCard.addEventListener("dragenter", (e) => handleDragOver(formCard, e))
+formCard.addEventListener("dragleave", (e) => handleDragLeave(formCard, e))
+formCard.addEventListener("drop", (e) => {
+  e.preventDefault()
+  e.stopPropagation()
+  formCard.classList.remove("drag-over")
+  const files = Array.from(e.dataTransfer.files || []).filter(f => f.type === "application/pdf" || f.name.endsWith(".pdf"))
+  if (files.length === 0) return
+  const dt = new DataTransfer()
+  dt.items.add(files[0])
+  formFileInput.files = dt.files
+  formFileInput.dispatchEvent(new Event("change"))
 })
 

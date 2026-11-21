@@ -4,15 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <meta name="description" content="Free PDF tools that run entirely in your browser: split, merge, organize, rotate, sign, crop, annotate, convert, watermark, protect and add page numbers. No upload — files never leave your device.">
+  <meta name="description" content="Free PDF tools that run entirely in your browser: split, merge, organize, rotate, sign, crop, compress, fill forms, extract text, annotate, convert, watermark, protect and add page numbers. No upload — files never leave your device.">
   <meta name="robots" content="index, follow">
   <meta property="og:title" content="JoinPDF — Private PDF Tools, Right in Your Browser">
-  <meta property="og:description" content="Free PDF tools that run entirely in your browser: split, merge, organize, rotate, sign, crop, annotate, convert, watermark, protect and add page numbers. No upload — files never leave your device.">
+  <meta property="og:description" content="Free PDF tools that run entirely in your browser: split, merge, organize, rotate, sign, crop, compress, fill forms, extract text, annotate, convert, watermark, protect and add page numbers. No upload — files never leave your device.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://joinpdf.top/">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="JoinPDF — Private PDF Tools, Right in Your Browser">
-  <meta name="twitter:description" content="Free PDF tools that run entirely in your browser: split, merge, organize, rotate, sign, crop, annotate, convert, watermark, protect and add page numbers. No upload — files never leave your device.">
+  <meta name="twitter:description" content="Free PDF tools that run entirely in your browser: split, merge, organize, rotate, sign, crop, compress, fill forms, extract text, annotate, convert, watermark, protect and add page numbers. No upload — files never leave your device.">
   <link rel="canonical" href="https://joinpdf.top/">
   <script type="application/ld+json">
   {
@@ -20,7 +20,7 @@
     "@type": "WebApplication",
     "name": "JoinPDF",
     "url": "https://joinpdf.top/",
-    "description": "Free private PDF tools: split, merge, organize, rotate, annotate, convert, watermark, protect and add page numbers. All processing happens in your browser — no upload.",
+    "description": "Free private PDF tools: split, merge, organize, rotate, sign, crop, compress, fill forms, extract text, annotate, convert, watermark, protect and add page numbers. All processing happens in your browser — no upload.",
     "applicationCategory": "Multimedia",
     "operatingSystem": "Any",
     "browserRequirements": "Requires JavaScript",
@@ -62,7 +62,7 @@
   </header>
   <section class="hero">
     <h1>Every PDF tool you need.<br>Nothing leaves your device.</h1>
-    <p class="hero-sub">Split, merge, organize, rotate, sign, crop, annotate, convert, watermark and protect PDFs — free, with no sign-up. All processing happens right in your browser.</p>
+    <p class="hero-sub">Split, merge, organize, rotate, sign, crop, compress, fill forms, extract text, annotate, convert, watermark and protect PDFs — free, with no sign-up. All processing happens right in your browser.</p>
     <div class="trust-row">
       <span class="trust-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>No uploads</span>
       <span class="trust-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>No sign-up</span>
@@ -163,7 +163,8 @@
         <div class="grid-header"><span id="orgCount"></span> <span class="hint">drag to reorder · × to delete</span></div>
         <div class="page-grid" id="orgGrid"></div>
         <div class="mini-actions">
-          <button id="orgReset" class="btn ghost small">Reset order</button>
+          <button id="orgBlank" class="btn ghost small">Detect blank pages</button>
+          <button id="orgReset" class="btn ghost small">Reset pages</button>
         </div>
       </div>
       <div class="actions">
@@ -221,6 +222,7 @@
           </div>
         </div>
         <div class="mini-actions">
+          <button id="cropAuto" class="btn ghost small">Auto-trim margins</button>
           <button id="cropReset" class="btn ghost small">Reset frame</button>
         </div>
       </div>
@@ -445,6 +447,49 @@
         <div id="pdf2imgStatus" class="status"></div>
       </div>
     </section>
+    <section class="card" id="txtCard">
+      <h2 class="card-title"><svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7V5h16v2"/><path d="M12 5v14"/><path d="M9 19h6"/></svg>PDF to Text</h2>
+      <p class="card-desc">Extract selectable text — copy it or download a .txt file.</p>
+      <div class="field">
+        <label for="txtFile">Select a PDF <a href="#" id="clearTxt" class="clear-link hidden">Clear</a></label>
+        <input id="txtFile" type="file" accept="application/pdf">
+      </div>
+      <div id="txtControls" class="hidden">
+        <div class="grid-header"><span id="txtInfo"></span></div>
+        <textarea id="txtOut" class="txt-out" rows="10" readonly aria-label="Extracted text"></textarea>
+      </div>
+      <div class="actions">
+        <button id="txtCopy" class="btn primary">Copy Text</button>
+        <button id="txtDownload" class="btn ghost">Download .txt</button>
+        <div id="txtStatus" class="status"></div>
+      </div>
+    </section>
+    <section class="card" id="cmpCard">
+      <h2 class="card-title"><svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14h6v6"/><path d="M20 10h-6V4"/><path d="M14 10l7-7"/><path d="M3 21l7-7"/></svg>Compress PDF</h2>
+      <p class="card-desc">Shrink file size for email and upload limits — lossless or stronger.</p>
+      <div class="field">
+        <label for="cmpFile">Select a PDF <a href="#" id="clearCmp" class="clear-link hidden">Clear</a></label>
+        <input id="cmpFile" type="file" accept="application/pdf">
+      </div>
+      <div id="cmpOptsWrap" class="hidden">
+        <div class="field">
+          <label for="cmpMode">Mode</label>
+          <select id="cmpMode">
+            <option value="lossless">Lossless — keep exact quality</option>
+            <option value="strong">Strong — re-encode images</option>
+          </select>
+        </div>
+        <div class="field hidden" id="cmpQualityField">
+          <label for="cmpQuality">Image quality: <span id="cmpQualityVal">60</span>%</label>
+          <input type="range" id="cmpQuality" min="10" max="90" value="60">
+        </div>
+        <div class="grid-header"><span id="cmpInfo"></span></div>
+      </div>
+      <div class="actions">
+        <button id="cmpBtn" class="btn primary">Compress PDF</button>
+        <div id="cmpStatus" class="status"></div>
+      </div>
+    </section>
     <section class="card" id="protCard">
       <h2 class="card-title"><svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Protect PDF</h2>
       <p class="card-desc">Add an AES-256 password, or remove one you already know.</p>
@@ -476,6 +521,25 @@
       <div class="actions">
         <button id="protBtn" class="btn primary">Protect PDF</button>
         <div id="protStatus" class="status"></div>
+      </div>
+    </section>
+    <section class="card" id="formCard">
+      <h2 class="card-title"><svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M9 12h6"/><path d="M9 16h4"/></svg>Fill &amp; Flatten Forms</h2>
+      <p class="card-desc">Fill fillable PDF forms here, then save — editable or flattened.</p>
+      <div class="field">
+        <label for="formFile">Select a PDF <a href="#" id="clearForm" class="clear-link hidden">Clear</a></label>
+        <input id="formFile" type="file" accept="application/pdf">
+      </div>
+      <div id="formWrap" class="hidden">
+        <div class="grid-header"><span id="formInfo"></span></div>
+        <div id="formFields" class="form-fields"></div>
+        <div class="field">
+          <label class="check-label"><input type="checkbox" id="formFlatten" checked> Flatten (make fields non-editable)</label>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="formBtn" class="btn primary">Save PDF</button>
+        <div id="formStatus" class="status"></div>
       </div>
     </section>
   </section>
@@ -511,7 +575,7 @@
         <p>Select or drag multiple PDFs onto the card. Each file shows a first-page preview and page count.</p>
         <p>Drag items or use ▲/▼ to reorder. Optionally set an output filename. Click Merge Files to download.</p>
         <h3>Organize Pages</h3>
-        <p>Select a PDF to see all pages. Drag thumbnails to reorder them, click × to delete a page, then click Save PDF. Use Reset order to start over.</p>
+        <p>Select a PDF to see all pages. Drag thumbnails to reorder them, click × to delete a page, then click Save PDF. Detect blank pages removes empty scanned pages in one click; Reset pages restores the original document.</p>
         <h3>Rotate PDF</h3>
         <p>Select a PDF, then use the ⟲ / ⟳ buttons under each page — or rotate all pages at once. Click Save PDF to download the rotated document.</p>
         <h3>Add Page Numbers</h3>
@@ -520,7 +584,7 @@
         <p>Select a PDF, then draw your signature on the pad (mouse or touch) or upload a signature image — a PNG with transparent background works best.</p>
         <p>Choose the page, set the signature width, and drag the signature overlay to position it. Click Apply Signature to download.</p>
         <h3>Crop PDF</h3>
-        <p>Select a PDF and drag the frame (or its corners) over the area you want to keep — everything outside is removed. Leave "Apply to all pages" checked to crop every page with the same frame, or uncheck it to crop only the previewed page. Reset frame restores the full page.</p>
+        <p>Select a PDF and drag the frame (or its corners) over the area you want to keep — everything outside is removed. Auto-trim margins fits the frame to the visible content automatically. Leave "Apply to all pages" checked to crop every page with the same frame, or uncheck it to crop only the previewed page. Reset frame restores the full page.</p>
         <h3>Images to PDF</h3>
         <p>Select or drag JPG/PNG images onto the card. Reorder them by dragging, choose "Fit to image" or A4 page size, then click Create PDF.</p>
         <h3>PDF to Images</h3>
@@ -530,6 +594,12 @@
         <h3>Protect PDF</h3>
         <p><strong>Add password:</strong> select a PDF, enter and confirm a password, optionally restrict printing/copying, then click Protect PDF. Encryption is AES-256.</p>
         <p><strong>Remove password:</strong> switch the mode, select the protected PDF, enter its current password, and click Remove Password.</p>
+        <h3>PDF to Text</h3>
+        <p>Select a PDF to extract its selectable text. Copy it to the clipboard or download a .txt file. Scanned image-only pages contain no selectable text — those yield empty output.</p>
+        <h3>Compress PDF</h3>
+        <p><strong>Lossless</strong> re-compresses streams and removes redundancy without touching quality. <strong>Strong</strong> additionally re-encodes embedded JPEG images at the quality you choose (and downscales very large ones). The status shows the exact before/after sizes. Text and vectors stay sharp in both modes.</p>
+        <h3>Fill &amp; Flatten Forms</h3>
+        <p>Select a PDF with fillable (AcroForm) fields. Text boxes, checkboxes, dropdowns and radio groups appear as normal inputs. Fill them, then Save PDF. With Flatten checked the fields become permanent page content; unchecked, the saved PDF stays fillable.</p>
         <p>The encryption engine downloads once on first use; your file and password are processed entirely on your device.</p>
         <h3>Tips</h3>
         <p>Drag files directly onto any card instead of using the file picker.</p>

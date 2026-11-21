@@ -88,5 +88,23 @@
     "title": "How to Crop PDF Pages Visually (Free, No Software)",
     "date": "2026-11-21",
     "description": "Drag a frame to trim margins, scanner borders or headers — one page or all pages. Private, browser-based cropping."
+  },
+  {
+    "slug": "how-to-compress-pdf",
+    "title": "How to Compress a PDF (Lossless or Strong, No Upload)",
+    "date": "2026-11-21",
+    "description": "Shrink PDFs for email and upload limits: lossless structure optimization or JPEG re-encoding with a quality slider."
+  },
+  {
+    "slug": "how-to-extract-text-from-pdf",
+    "title": "How to Extract Text from a PDF (Copy or .txt, Free)",
+    "date": "2026-11-21",
+    "description": "Pull the selectable text out of any PDF with page and character counts — copy it or download a plain-text file."
+  },
+  {
+    "slug": "how-to-fill-pdf-forms",
+    "title": "How to Fill PDF Forms in Your Browser (and Flatten Them)",
+    "date": "2026-11-21",
+    "description": "Complete fillable PDF forms with normal inputs, then save flattened or editable. Personal data never leaves your device."
   }
 ]
