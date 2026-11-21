@@ -126,10 +126,11 @@ svg { flex-shrink: 0; }
 .section-head p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
 .tools-grid { padding-bottom: 8px; }
 @media (min-width: 900px) {
-  .tools-grid { grid-template-columns: repeat(3, 1fr); align-items: start; }
+  .tools-grid { grid-template-columns: repeat(3, 1fr); }
 }
 @media (min-width: 640px) and (max-width: 899px) {
   .tools-grid { grid-template-columns: 1fr 1fr; }
+  .tools-grid > .card:last-child { grid-column: 1 / -1; }
 }
 
 /* ===== Cards ===== */
@@ -140,7 +141,10 @@ svg { flex-shrink: 0; }
   box-shadow: var(--shadow);
   padding: 22px;
   transition: border-color .2s, box-shadow .2s;
+  display: flex;
+  flex-direction: column;
 }
+.card > .actions { margin-top: auto; padding-top: 16px; }
 .card-title {
   margin: 0;
   font-size: 18px;

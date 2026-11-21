@@ -1317,8 +1317,10 @@ const clearImgs = document.getElementById("clearImgs")
 const img2pdfCard = document.getElementById("img2pdfCard")
 let imgItems = []
 let imgDragIdx = null
+const i2pOptsWrap = document.getElementById("i2pOptsWrap")
 
 function renderImgList() {
+  i2pOptsWrap.classList.toggle("hidden", imgItems.length === 0)
   imgListEl.innerHTML = ""
   for (let i = 0; i < imgItems.length; i++) {
     const item = imgItems[i]
@@ -1524,17 +1526,20 @@ function downloadBlob(blob, name) {
   setTimeout(() => URL.revokeObjectURL(url), 5000)
 }
 
+const p2iOptsWrap = document.getElementById("p2iOptsWrap")
 pdf2imgFileInput.addEventListener("change", (e) => {
   pdf2imgFileRef = e.target.files && e.target.files[0] ? e.target.files[0] : null
   setStatus(pdf2imgStatus, "")
   if (pdf2imgFileRef) clearPdf2img.classList.remove("hidden")
   else clearPdf2img.classList.add("hidden")
+  p2iOptsWrap.classList.toggle("hidden", !pdf2imgFileRef)
 })
 clearPdf2img.addEventListener("click", (e) => {
   e.preventDefault()
   pdf2imgFileInput.value = ""
   pdf2imgFileRef = null
   clearPdf2img.classList.add("hidden")
+  p2iOptsWrap.classList.add("hidden")
   setStatus(pdf2imgStatus, "")
 })
 
@@ -1667,11 +1672,13 @@ function drawWmPreview() {
   ctx.restore()
 }
 
+const wmTextWrap = document.getElementById("wmTextWrap")
 async function loadWmPreview() {
   wmBaseCanvas = null
   if (!wmFileRef) {
     wmControls.classList.add("hidden")
     wmPreviewWrap.classList.add("hidden")
+    wmTextWrap.classList.add("hidden")
     return
   }
   try {
@@ -1689,10 +1696,12 @@ async function loadWmPreview() {
     wmBaseCanvas = cv
     wmControls.classList.remove("hidden")
     wmPreviewWrap.classList.remove("hidden")
+    wmTextWrap.classList.remove("hidden")
     drawWmPreview()
   } catch (e) {
     wmControls.classList.add("hidden")
     wmPreviewWrap.classList.add("hidden")
+    wmTextWrap.classList.add("hidden")
     if (e && e.name === "PasswordException") {
       setStatus(wmStatus, "This PDF is password-protected. Remove the password first with Protect PDF.", "error")
     } else {
@@ -1879,6 +1888,7 @@ function looksEncrypted(bytes) {
   return head.indexOf("/Encrypt") >= 0 || tail.indexOf("/Encrypt") >= 0
 }
 
+const protOptsWrap = document.getElementById("protOptsWrap")
 function updateProtMode() {
   const enc = protModeSelect.value === "encrypt"
   protPw2Field.classList.toggle("hidden", !enc)
@@ -1895,12 +1905,14 @@ protFileInput.addEventListener("change", (e) => {
   setStatus(protStatus, "")
   if (protFileRef) clearProt.classList.remove("hidden")
   else clearProt.classList.add("hidden")
+  protOptsWrap.classList.toggle("hidden", !protFileRef)
 })
 clearProt.addEventListener("click", (e) => {
   e.preventDefault()
   protFileInput.value = ""
   protFileRef = null
   clearProt.classList.add("hidden")
+  protOptsWrap.classList.add("hidden")
   setStatus(protStatus, "")
 })
 
@@ -2559,6 +2571,7 @@ const sigBtn = document.getElementById("sigBtn")
 const sigStatus = document.getElementById("sigStatus")
 const clearSig = document.getElementById("clearSig")
 const sigCard = document.getElementById("sigCard")
+const sigSourceWrap = document.getElementById("sigSourceWrap")
 let sigFileRef = null
 let sigPdf = null
 let sigPageIdx = 0
@@ -2659,6 +2672,7 @@ async function loadSigPreview() {
   sigPdf = null
   if (!sigFileRef) {
     sigControls.classList.add("hidden")
+    sigSourceWrap.classList.add("hidden")
     updateSigOverlay()
     return
   }
@@ -2670,9 +2684,11 @@ async function loadSigPreview() {
     sigPageSelect.value = "0"
     await renderPagePreview(sigPdf, sigPageIdx, sigPreviewCanvas, 440, 400)
     sigControls.classList.remove("hidden")
+    sigSourceWrap.classList.remove("hidden")
     updateSigOverlay()
   } catch (e) {
     sigControls.classList.add("hidden")
+    sigSourceWrap.classList.add("hidden")
     setStatus(sigStatus, encryptedMsg(e) ? ENCRYPTED_HINT : "Failed to load file.", "error")
   }
 }

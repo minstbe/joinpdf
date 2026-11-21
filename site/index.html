@@ -191,6 +191,44 @@
         <div id="rotStatus" class="status"></div>
       </div>
     </section>
+    <section class="card" id="cropCard">
+      <h2 class="card-title"><svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>Crop PDF</h2>
+      <p class="card-desc">Trim margins visually — drag the frame, apply to one page or all.</p>
+      <div class="field">
+        <label for="cropFile">Select a PDF <a href="#" id="clearCrop" class="clear-link hidden">Clear</a></label>
+        <input id="cropFile" type="file" accept="application/pdf">
+      </div>
+      <div id="cropControls" class="hidden">
+        <div class="pn-grid">
+          <div class="field">
+            <label for="cropPage">Preview page</label>
+            <select id="cropPage"></select>
+          </div>
+          <div class="field">
+            <label class="check-label crop-all-label"><input type="checkbox" id="cropAll" checked> Apply to all pages</label>
+          </div>
+        </div>
+        <div class="grid-header">Drag the frame or its corners <span class="hint">outside the frame is removed</span></div>
+        <div class="crop-preview-wrap">
+          <div class="crop-preview-box" id="cropPreviewBox">
+            <canvas id="cropPreview"></canvas>
+            <div id="cropRect" class="crop-rect">
+              <span class="crop-h" data-h="nw"></span>
+              <span class="crop-h" data-h="ne"></span>
+              <span class="crop-h" data-h="sw"></span>
+              <span class="crop-h" data-h="se"></span>
+            </div>
+          </div>
+        </div>
+        <div class="mini-actions">
+          <button id="cropReset" class="btn ghost small">Reset frame</button>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="cropBtn" class="btn primary">Crop PDF</button>
+        <div id="cropStatus" class="status"></div>
+      </div>
+    </section>
     <section class="card" id="pnCard">
       <h2 class="card-title"><svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h16"/><path d="M4 15h16"/><path d="M10 3 8 21"/><path d="M16 3l-2 18"/></svg>Add Page Numbers</h2>
       <p class="card-desc">Number your pages with a live preview — position, style and size.</p>
@@ -249,6 +287,7 @@
         <label for="sigFile">Select a PDF <a href="#" id="clearSig" class="clear-link hidden">Clear</a></label>
         <input id="sigFile" type="file" accept="application/pdf">
       </div>
+      <div id="sigSourceWrap" class="hidden">
       <div class="field">
         <label for="sigMode">Signature source</label>
         <select id="sigMode">
@@ -270,6 +309,7 @@
           <label for="sigImgFile">Signature image (PNG with transparency works best)</label>
           <input id="sigImgFile" type="file" accept="image/*">
         </div>
+      </div>
       </div>
       <div id="sigControls" class="hidden">
         <div class="pn-grid">
@@ -295,92 +335,6 @@
         <div id="sigStatus" class="status"></div>
       </div>
     </section>
-    <section class="card" id="cropCard">
-      <h2 class="card-title"><svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>Crop PDF</h2>
-      <p class="card-desc">Trim margins visually — drag the frame, apply to one page or all.</p>
-      <div class="field">
-        <label for="cropFile">Select a PDF <a href="#" id="clearCrop" class="clear-link hidden">Clear</a></label>
-        <input id="cropFile" type="file" accept="application/pdf">
-      </div>
-      <div id="cropControls" class="hidden">
-        <div class="pn-grid">
-          <div class="field">
-            <label for="cropPage">Preview page</label>
-            <select id="cropPage"></select>
-          </div>
-          <div class="field">
-            <label class="check-label crop-all-label"><input type="checkbox" id="cropAll" checked> Apply to all pages</label>
-          </div>
-        </div>
-        <div class="grid-header">Drag the frame or its corners <span class="hint">outside the frame is removed</span></div>
-        <div class="crop-preview-wrap">
-          <div class="crop-preview-box" id="cropPreviewBox">
-            <canvas id="cropPreview"></canvas>
-            <div id="cropRect" class="crop-rect">
-              <span class="crop-h" data-h="nw"></span>
-              <span class="crop-h" data-h="ne"></span>
-              <span class="crop-h" data-h="sw"></span>
-              <span class="crop-h" data-h="se"></span>
-            </div>
-          </div>
-        </div>
-        <div class="mini-actions">
-          <button id="cropReset" class="btn ghost small">Reset frame</button>
-        </div>
-      </div>
-      <div class="actions">
-        <button id="cropBtn" class="btn primary">Crop PDF</button>
-        <div id="cropStatus" class="status"></div>
-      </div>
-    </section>
-    <section class="card" id="img2pdfCard">
-      <h2 class="card-title"><svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>Images to PDF</h2>
-      <p class="card-desc">Turn JPG or PNG photos into one PDF. Drag to reorder pages.</p>
-      <div class="field">
-        <label for="imgFiles">Select images <a href="#" id="clearImgs" class="clear-link hidden">Clear all</a></label>
-        <input id="imgFiles" type="file" multiple accept="image/*">
-      </div>
-      <div class="list-header">
-        <div>Selected Images</div>
-        <div class="hint">Drag items to reorder</div>
-      </div>
-      <ul id="imgList" class="file-list"></ul>
-      <div class="field">
-        <label for="imgPageSize">Page size</label>
-        <select id="imgPageSize">
-          <option value="fit">Fit to image</option>
-          <option value="a4">A4 (image centered)</option>
-        </select>
-      </div>
-      <div class="field">
-        <label for="imgName">Output filename (optional)</label>
-        <input id="imgName" type="text" placeholder="e.g. photos">
-      </div>
-      <div class="actions">
-        <button id="img2pdfBtn" class="btn primary">Create PDF</button>
-        <div id="imgStatus" class="status"></div>
-      </div>
-    </section>
-    <section class="card" id="pdf2imgCard">
-      <h2 class="card-title"><svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 11v6"/><path d="m9 14 3 3 3-3"/></svg>PDF to Images</h2>
-      <p class="card-desc">Export every page as a PNG. Multiple pages download as a ZIP.</p>
-      <div class="field">
-        <label for="pdf2imgFile">Select a PDF <a href="#" id="clearPdf2img" class="clear-link hidden">Clear</a></label>
-        <input id="pdf2imgFile" type="file" accept="application/pdf">
-      </div>
-      <div class="field">
-        <label for="imgScale">Image quality</label>
-        <select id="imgScale">
-          <option value="2">High (2x)</option>
-          <option value="1">Standard (1x)</option>
-          <option value="3">Extra (3x)</option>
-        </select>
-      </div>
-      <div class="actions">
-        <button id="pdf2imgBtn" class="btn primary">Convert to PNG</button>
-        <div id="pdf2imgStatus" class="status"></div>
-      </div>
-    </section>
     <section class="card" id="wmCard">
       <h2 class="card-title"><svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg>Watermark PDF</h2>
       <p class="card-desc">Stamp text across your pages — diagonal, tiled, your color and opacity.</p>
@@ -388,9 +342,11 @@
         <label for="wmFile">Select a PDF <a href="#" id="clearWm" class="clear-link hidden">Clear</a></label>
         <input id="wmFile" type="file" accept="application/pdf">
       </div>
-      <div class="field">
-        <label for="wmText">Watermark text</label>
-        <input id="wmText" type="text" placeholder="e.g. CONFIDENTIAL" value="CONFIDENTIAL">
+      <div id="wmTextWrap" class="hidden">
+        <div class="field">
+          <label for="wmText">Watermark text</label>
+          <input id="wmText" type="text" placeholder="e.g. CONFIDENTIAL" value="CONFIDENTIAL">
+        </div>
       </div>
       <div class="wm-controls hidden" id="wmControls">
         <div class="field">
@@ -437,6 +393,58 @@
         <div id="wmStatus" class="status"></div>
       </div>
     </section>
+    <section class="card" id="img2pdfCard">
+      <h2 class="card-title"><svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>Images to PDF</h2>
+      <p class="card-desc">Turn JPG or PNG photos into one PDF. Drag to reorder pages.</p>
+      <div class="field">
+        <label for="imgFiles">Select images <a href="#" id="clearImgs" class="clear-link hidden">Clear all</a></label>
+        <input id="imgFiles" type="file" multiple accept="image/*">
+      </div>
+      <div class="list-header">
+        <div>Selected Images</div>
+        <div class="hint">Drag items to reorder</div>
+      </div>
+      <ul id="imgList" class="file-list"></ul>
+      <div id="i2pOptsWrap" class="hidden">
+        <div class="field">
+          <label for="imgPageSize">Page size</label>
+          <select id="imgPageSize">
+            <option value="fit">Fit to image</option>
+            <option value="a4">A4 (image centered)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="imgName">Output filename (optional)</label>
+          <input id="imgName" type="text" placeholder="e.g. photos">
+        </div>
+      </div>
+      <div class="actions">
+        <button id="img2pdfBtn" class="btn primary">Create PDF</button>
+        <div id="imgStatus" class="status"></div>
+      </div>
+    </section>
+    <section class="card" id="pdf2imgCard">
+      <h2 class="card-title"><svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 11v6"/><path d="m9 14 3 3 3-3"/></svg>PDF to Images</h2>
+      <p class="card-desc">Export every page as a PNG. Multiple pages download as a ZIP.</p>
+      <div class="field">
+        <label for="pdf2imgFile">Select a PDF <a href="#" id="clearPdf2img" class="clear-link hidden">Clear</a></label>
+        <input id="pdf2imgFile" type="file" accept="application/pdf">
+      </div>
+      <div id="p2iOptsWrap" class="hidden">
+        <div class="field">
+          <label for="imgScale">Image quality</label>
+          <select id="imgScale">
+            <option value="2">High (2x)</option>
+            <option value="1">Standard (1x)</option>
+            <option value="3">Extra (3x)</option>
+          </select>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="pdf2imgBtn" class="btn primary">Convert to PNG</button>
+        <div id="pdf2imgStatus" class="status"></div>
+      </div>
+    </section>
     <section class="card" id="protCard">
       <h2 class="card-title"><svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Protect PDF</h2>
       <p class="card-desc">Add an AES-256 password, or remove one you already know.</p>
@@ -451,6 +459,7 @@
         <label for="protFile">Select a PDF <a href="#" id="clearProt" class="clear-link hidden">Clear</a></label>
         <input id="protFile" type="file" accept="application/pdf">
       </div>
+      <div id="protOptsWrap" class="hidden">
       <div class="field">
         <label for="protPw" id="protPwLabel">Password</label>
         <input id="protPw" type="password" placeholder="Password" autocomplete="new-password">
@@ -462,6 +471,7 @@
       <div class="field" id="protPerms">
         <label class="check-label"><input type="checkbox" id="protPrint" checked> Allow printing</label>
         <label class="check-label"><input type="checkbox" id="protCopy" checked> Allow copying text</label>
+      </div>
       </div>
       <div class="actions">
         <button id="protBtn" class="btn primary">Protect PDF</button>
