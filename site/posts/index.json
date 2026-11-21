@@ -76,5 +76,17 @@
     "title": "How to Add Page Numbers to a PDF (With Live Preview)",
     "date": "2026-11-20",
     "description": "Number pages in six positions and four formats, with start number, size and margin controls. Free and private."
+  },
+  {
+    "slug": "how-to-sign-a-pdf",
+    "title": "How to Sign a PDF for Free (Draw or Upload, No Upload)",
+    "date": "2026-11-21",
+    "description": "Draw your signature or upload an image, drag it into place, and download the signed PDF. 100% in your browser."
+  },
+  {
+    "slug": "how-to-crop-pdf-pages",
+    "title": "How to Crop PDF Pages Visually (Free, No Software)",
+    "date": "2026-11-21",
+    "description": "Drag a frame to trim margins, scanner borders or headers — one page or all pages. Private, browser-based cropping."
   }
 ]

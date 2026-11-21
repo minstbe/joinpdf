@@ -2490,3 +2490,469 @@ pnCard.addEventListener("drop", (e) => {
   pnFileInput.dispatchEvent(new Event("change"))
 })
 
+// ===== Shared helpers for sign / crop =====
+function trimCanvasAlpha(src, pad) {
+  const ctx = src.getContext("2d")
+  const { width: w, height: h } = src
+  const data = ctx.getImageData(0, 0, w, h).data
+  let x0 = w, y0 = h, x1 = -1, y1 = -1
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (data[(y * w + x) * 4 + 3] > 10) {
+        if (x < x0) x0 = x
+        if (x > x1) x1 = x
+        if (y < y0) y0 = y
+        if (y > y1) y1 = y
+      }
+    }
+  }
+  if (x1 < 0) return null
+  x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad)
+  x1 = Math.min(w - 1, x1 + pad); y1 = Math.min(h - 1, y1 + pad)
+  const out = document.createElement("canvas")
+  out.width = x1 - x0 + 1
+  out.height = y1 - y0 + 1
+  out.getContext("2d").drawImage(src, x0, y0, out.width, out.height, 0, 0, out.width, out.height)
+  return out
+}
+async function renderPagePreview(pdf, idx, canvas, maxW, maxH) {
+  const page = await pdf.getPage(idx + 1)
+  const vp0 = page.getViewport({ scale: 1 })
+  const scale = Math.min(maxW / vp0.width, maxH / vp0.height, 1.5)
+  const vp = page.getViewport({ scale })
+  canvas.width = vp.width
+  canvas.height = vp.height
+  await page.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise
+  return { w: vp0.width, h: vp0.height }
+}
+function fillPageSelect(sel, total) {
+  sel.innerHTML = ""
+  for (let i = 1; i <= total; i++) {
+    const o = document.createElement("option")
+    o.value = String(i - 1)
+    o.textContent = "Page " + i
+    sel.appendChild(o)
+  }
+}
+function encryptedMsg(err) {
+  return String(err.message || "").includes("encrypted") || (err && err.name === "PasswordException")
+}
+const ENCRYPTED_HINT = "This PDF is password-protected. Remove the password first with Protect PDF."
+
+// ===== Sign PDF =====
+const sigFileInput = document.getElementById("sigFile")
+const sigModeSelect = document.getElementById("sigMode")
+const sigPadWrap = document.getElementById("sigPadWrap")
+const sigPad = document.getElementById("sigPad")
+const sigPadClear = document.getElementById("sigPadClear")
+const sigInk = document.getElementById("sigInk")
+const sigUploadWrap = document.getElementById("sigUploadWrap")
+const sigImgFile = document.getElementById("sigImgFile")
+const sigControls = document.getElementById("sigControls")
+const sigPageSelect = document.getElementById("sigPage")
+const sigSizeInput = document.getElementById("sigSize")
+const sigSizeVal = document.getElementById("sigSizeVal")
+const sigPreviewBox = document.getElementById("sigPreviewBox")
+const sigPreviewCanvas = document.getElementById("sigPreview")
+const sigOverlay = document.getElementById("sigOverlay")
+const sigBtn = document.getElementById("sigBtn")
+const sigStatus = document.getElementById("sigStatus")
+const clearSig = document.getElementById("clearSig")
+const sigCard = document.getElementById("sigCard")
+let sigFileRef = null
+let sigPdf = null
+let sigPageIdx = 0
+let sigTrim = null
+let sigFrac = 0.25
+let sigPos = { fx: 0.62, fy: 0.78 }
+let sigDrawing = false
+
+sigOverlay.draggable = false
+function sigAspect() {
+  return sigTrim ? sigTrim.height / sigTrim.width : 0.4
+}
+function updateSigOverlay() {
+  if (!sigTrim || !sigPdf) {
+    sigOverlay.classList.add("hidden")
+    return
+  }
+  const boxW = sigPreviewCanvas.getBoundingClientRect().width
+  const boxH = sigPreviewCanvas.getBoundingClientRect().height
+  if (!boxW) return
+  const w = sigFrac * boxW
+  const h = w * sigAspect()
+  sigPos.fx = Math.min(Math.max(sigPos.fx, 0), Math.max(0, 1 - sigFrac))
+  sigPos.fy = Math.min(Math.max(sigPos.fy, 0), Math.max(0, 1 - h / boxH))
+  sigOverlay.style.left = (sigPos.fx * boxW) + "px"
+  sigOverlay.style.top = (sigPos.fy * boxH) + "px"
+  sigOverlay.style.width = w + "px"
+  sigOverlay.style.height = h + "px"
+  sigOverlay.classList.remove("hidden")
+}
+function refreshSigTrim() {
+  sigTrim = trimCanvasAlpha(sigPad, 4)
+  if (sigTrim) sigOverlay.src = sigTrim.toDataURL("image/png")
+  updateSigOverlay()
+}
+function padPoint(e) {
+  const r = sigPad.getBoundingClientRect()
+  return { x: (e.clientX - r.left) * (sigPad.width / r.width), y: (e.clientY - r.top) * (sigPad.height / r.height) }
+}
+sigPad.addEventListener("pointerdown", (e) => {
+  e.preventDefault()
+  sigDrawing = true
+  try { sigPad.setPointerCapture(e.pointerId) } catch (_) {}
+  const ctx = sigPad.getContext("2d")
+  const p = padPoint(e)
+  ctx.strokeStyle = sigInk.value
+  ctx.lineWidth = 3.5
+  ctx.lineCap = "round"
+  ctx.lineJoin = "round"
+  ctx.beginPath()
+  ctx.moveTo(p.x, p.y)
+  ctx.lineTo(p.x + 0.1, p.y + 0.1)
+  ctx.stroke()
+})
+sigPad.addEventListener("pointermove", (e) => {
+  if (!sigDrawing) return
+  const p = padPoint(e)
+  const ctx = sigPad.getContext("2d")
+  ctx.lineTo(p.x, p.y)
+  ctx.stroke()
+})
+sigPad.addEventListener("pointerup", () => {
+  if (!sigDrawing) return
+  sigDrawing = false
+  refreshSigTrim()
+})
+sigPad.addEventListener("pointercancel", () => { sigDrawing = false; refreshSigTrim() })
+sigPadClear.addEventListener("click", () => {
+  sigPad.getContext("2d").clearRect(0, 0, sigPad.width, sigPad.height)
+  sigTrim = null
+  updateSigOverlay()
+})
+sigModeSelect.addEventListener("change", () => {
+  const draw = sigModeSelect.value === "draw"
+  sigPadWrap.classList.toggle("hidden", !draw)
+  sigUploadWrap.classList.toggle("hidden", draw)
+  if (draw) refreshSigTrim()
+})
+sigImgFile.addEventListener("change", async (e) => {
+  const f = e.target.files && e.target.files[0]
+  if (!f) return
+  try {
+    const { im, url } = await loadImageElement(f)
+    const cv = document.createElement("canvas")
+    cv.width = im.naturalWidth
+    cv.height = im.naturalHeight
+    cv.getContext("2d").drawImage(im, 0, 0)
+    URL.revokeObjectURL(url)
+    sigTrim = trimCanvasAlpha(cv, 2)
+    if (sigTrim) sigOverlay.src = sigTrim.toDataURL("image/png")
+    updateSigOverlay()
+    setStatus(sigStatus, sigTrim ? "" : "No visible signature found in that image.", sigTrim ? "" : "error")
+  } catch (err) {
+    setStatus(sigStatus, "Failed to load image.", "error")
+  }
+})
+async function loadSigPreview() {
+  sigPdf = null
+  if (!sigFileRef) {
+    sigControls.classList.add("hidden")
+    updateSigOverlay()
+    return
+  }
+  try {
+    const buffer = await sigFileRef.arrayBuffer()
+    sigPdf = await pdfjsLib.getDocument({ data: buffer }).promise
+    fillPageSelect(sigPageSelect, sigPdf.numPages)
+    sigPageIdx = 0
+    sigPageSelect.value = "0"
+    await renderPagePreview(sigPdf, sigPageIdx, sigPreviewCanvas, 440, 400)
+    sigControls.classList.remove("hidden")
+    updateSigOverlay()
+  } catch (e) {
+    sigControls.classList.add("hidden")
+    setStatus(sigStatus, encryptedMsg(e) ? ENCRYPTED_HINT : "Failed to load file.", "error")
+  }
+}
+sigFileInput.addEventListener("change", (e) => {
+  sigFileRef = e.target.files && e.target.files[0] ? e.target.files[0] : null
+  setStatus(sigStatus, "")
+  if (sigFileRef) clearSig.classList.remove("hidden")
+  else clearSig.classList.add("hidden")
+  loadSigPreview()
+})
+clearSig.addEventListener("click", (e) => {
+  e.preventDefault()
+  sigFileInput.value = ""
+  sigFileRef = null
+  clearSig.classList.add("hidden")
+  setStatus(sigStatus, "")
+  loadSigPreview()
+})
+sigPageSelect.addEventListener("change", async () => {
+  sigPageIdx = parseInt(sigPageSelect.value, 10) || 0
+  if (sigPdf) {
+    await renderPagePreview(sigPdf, sigPageIdx, sigPreviewCanvas, 440, 400)
+    updateSigOverlay()
+  }
+})
+sigSizeInput.addEventListener("input", () => {
+  sigSizeVal.textContent = sigSizeInput.value
+  sigFrac = (parseInt(sigSizeInput.value, 10) || 25) / 100
+  updateSigOverlay()
+})
+sigOverlay.addEventListener("pointerdown", (e) => {
+  e.preventDefault()
+  try { sigOverlay.setPointerCapture(e.pointerId) } catch (_) {}
+  const box = sigPreviewCanvas.getBoundingClientRect()
+  const startX = e.clientX, startY = e.clientY
+  const origFx = sigPos.fx, origFy = sigPos.fy
+  const move = (ev) => {
+    sigPos.fx = origFx + (ev.clientX - startX) / box.width
+    sigPos.fy = origFy + (ev.clientY - startY) / box.height
+    updateSigOverlay()
+  }
+  const up = () => {
+    sigOverlay.removeEventListener("pointermove", move)
+    sigOverlay.removeEventListener("pointerup", up)
+    sigOverlay.removeEventListener("pointercancel", up)
+  }
+  sigOverlay.addEventListener("pointermove", move)
+  sigOverlay.addEventListener("pointerup", up)
+  sigOverlay.addEventListener("pointercancel", up)
+})
+sigBtn.addEventListener("click", async () => {
+  if (!sigFileRef) {
+    setStatus(sigStatus, "Please select a PDF.", "error")
+    track("sig_missing_file")
+    return
+  }
+  if (!sigTrim) {
+    setStatus(sigStatus, "Draw or upload a signature first.", "error")
+    track("sig_missing_signature")
+    return
+  }
+  if (sigFileRef.size > MAX_FILE_SIZE) {
+    setStatus(sigStatus, "File is too large (max 100 MB).", "error")
+    return
+  }
+  setBusy(sigBtn, true, "Apply Signature", "Processing...")
+  setStatus(sigStatus, "")
+  try {
+    track("sig_start")
+    const buffer = await sigFileRef.arrayBuffer()
+    const src = await PDFLib.PDFDocument.load(buffer)
+    const out = await PDFLib.PDFDocument.create()
+    const img = await out.embedPng(sigTrim.toDataURL("image/png"))
+    const total = src.getPageCount()
+    const pages = await out.copyPages(src, Array.from({ length: total }, (_, i) => i))
+    for (let i = 0; i < pages.length; i++) {
+      if (i !== sigPageIdx) { out.addPage(pages[i]); continue }
+      const p = await addPageBaked(out, pages[i])
+      const w = p.getWidth(), h = p.getHeight()
+      const sw = sigFrac * w
+      const sh = sw * sigAspect()
+      p.drawImage(img, { x: sigPos.fx * w, y: h - sigPos.fy * h - sh, width: sw, height: sh })
+    }
+    const bytes = await out.save()
+    const base = sigFileRef.name.replace(/\.pdf$/i, "")
+    downloadBytes(bytes, base + "_signed.pdf")
+    setStatus(sigStatus, "Done. Signature applied to page " + (sigPageIdx + 1) + ".", "success")
+    track("sig_success", { page: sigPageIdx + 1 })
+  } catch (err) {
+    console.error("sign error:", err)
+    setStatus(sigStatus, encryptedMsg(err) ? ENCRYPTED_HINT : "Failed to process file.", "error")
+    track("sig_error")
+  } finally {
+    setBusy(sigBtn, false, "Apply Signature", "Processing...")
+  }
+})
+sigCard.addEventListener("dragover", (e) => handleDragOver(sigCard, e))
+sigCard.addEventListener("dragenter", (e) => handleDragOver(sigCard, e))
+sigCard.addEventListener("dragleave", (e) => handleDragLeave(sigCard, e))
+sigCard.addEventListener("drop", (e) => {
+  e.preventDefault()
+  e.stopPropagation()
+  sigCard.classList.remove("drag-over")
+  const files = Array.from(e.dataTransfer.files || []).filter(f => f.type === "application/pdf" || f.name.endsWith(".pdf"))
+  if (files.length === 0) return
+  const dt = new DataTransfer()
+  dt.items.add(files[0])
+  sigFileInput.files = dt.files
+  sigFileInput.dispatchEvent(new Event("change"))
+})
+
+// ===== Crop PDF =====
+const cropFileInput = document.getElementById("cropFile")
+const cropControls = document.getElementById("cropControls")
+const cropPageSelect = document.getElementById("cropPage")
+const cropAllCheck = document.getElementById("cropAll")
+const cropPreviewBox = document.getElementById("cropPreviewBox")
+const cropPreviewCanvas = document.getElementById("cropPreview")
+const cropRectEl = document.getElementById("cropRect")
+const cropReset = document.getElementById("cropReset")
+const cropBtn = document.getElementById("cropBtn")
+const cropStatus = document.getElementById("cropStatus")
+const clearCrop = document.getElementById("clearCrop")
+const cropCard = document.getElementById("cropCard")
+let cropFileRef = null
+let cropPdf = null
+let cropPageIdx = 0
+let cropRect = { x: 0.05, y: 0.05, w: 0.9, h: 0.9 }
+
+function positionCropRect() {
+  const r = cropPreviewCanvas.getBoundingClientRect()
+  if (!r.width) return
+  cropRectEl.style.left = (cropRect.x * r.width) + "px"
+  cropRectEl.style.top = (cropRect.y * r.height) + "px"
+  cropRectEl.style.width = (cropRect.w * r.width) + "px"
+  cropRectEl.style.height = (cropRect.h * r.height) + "px"
+}
+function clampCrop() {
+  const MIN = 0.05
+  cropRect.w = Math.min(Math.max(cropRect.w, MIN), 1)
+  cropRect.h = Math.min(Math.max(cropRect.h, MIN), 1)
+  cropRect.x = Math.min(Math.max(cropRect.x, 0), 1 - cropRect.w)
+  cropRect.y = Math.min(Math.max(cropRect.y, 0), 1 - cropRect.h)
+}
+async function loadCropPreview() {
+  cropPdf = null
+  if (!cropFileRef) {
+    cropControls.classList.add("hidden")
+    return
+  }
+  try {
+    const buffer = await cropFileRef.arrayBuffer()
+    cropPdf = await pdfjsLib.getDocument({ data: buffer }).promise
+    fillPageSelect(cropPageSelect, cropPdf.numPages)
+    cropPageIdx = 0
+    cropPageSelect.value = "0"
+    await renderPagePreview(cropPdf, cropPageIdx, cropPreviewCanvas, 440, 400)
+    cropControls.classList.remove("hidden")
+    positionCropRect()
+  } catch (e) {
+    cropControls.classList.add("hidden")
+    setStatus(cropStatus, encryptedMsg(e) ? ENCRYPTED_HINT : "Failed to load file.", "error")
+  }
+}
+cropFileInput.addEventListener("change", (e) => {
+  cropFileRef = e.target.files && e.target.files[0] ? e.target.files[0] : null
+  setStatus(cropStatus, "")
+  if (cropFileRef) clearCrop.classList.remove("hidden")
+  else clearCrop.classList.add("hidden")
+  loadCropPreview()
+})
+clearCrop.addEventListener("click", (e) => {
+  e.preventDefault()
+  cropFileInput.value = ""
+  cropFileRef = null
+  clearCrop.classList.add("hidden")
+  setStatus(cropStatus, "")
+  loadCropPreview()
+})
+cropPageSelect.addEventListener("change", async () => {
+  cropPageIdx = parseInt(cropPageSelect.value, 10) || 0
+  if (cropPdf) {
+    await renderPagePreview(cropPdf, cropPageIdx, cropPreviewCanvas, 440, 400)
+    positionCropRect()
+  }
+})
+cropReset.addEventListener("click", () => {
+  cropRect = { x: 0, y: 0, w: 1, h: 1 }
+  positionCropRect()
+})
+cropRectEl.addEventListener("pointerdown", (e) => {
+  e.preventDefault()
+  try { cropRectEl.setPointerCapture(e.pointerId) } catch (_) {}
+  const handle = e.target.closest(".crop-h")
+  const mode = handle ? handle.dataset.h : "move"
+  const box = cropPreviewCanvas.getBoundingClientRect()
+  const startX = e.clientX, startY = e.clientY
+  const orig = { ...cropRect }
+  const move = (ev) => {
+    const dx = (ev.clientX - startX) / box.width
+    const dy = (ev.clientY - startY) / box.height
+    if (mode === "move") {
+      cropRect.x = orig.x + dx
+      cropRect.y = orig.y + dy
+    } else {
+      if (mode.includes("w")) { cropRect.x = orig.x + dx; cropRect.w = orig.w - dx }
+      if (mode.includes("e")) { cropRect.w = orig.w + dx }
+      if (mode.includes("n")) { cropRect.y = orig.y + dy; cropRect.h = orig.h - dy }
+      if (mode.includes("s")) { cropRect.h = orig.h + dy }
+    }
+    clampCrop()
+    positionCropRect()
+  }
+  const up = () => {
+    cropRectEl.removeEventListener("pointermove", move)
+    cropRectEl.removeEventListener("pointerup", up)
+    cropRectEl.removeEventListener("pointercancel", up)
+  }
+  cropRectEl.addEventListener("pointermove", move)
+  cropRectEl.addEventListener("pointerup", up)
+  cropRectEl.addEventListener("pointercancel", up)
+})
+cropBtn.addEventListener("click", async () => {
+  if (!cropFileRef) {
+    setStatus(cropStatus, "Please select a PDF.", "error")
+    track("crop_missing_file")
+    return
+  }
+  if (cropFileRef.size > MAX_FILE_SIZE) {
+    setStatus(cropStatus, "File is too large (max 100 MB).", "error")
+    return
+  }
+  setBusy(cropBtn, true, "Crop PDF", "Processing...")
+  setStatus(cropStatus, "")
+  try {
+    track("crop_start", { all: cropAllCheck.checked })
+    const buffer = await cropFileRef.arrayBuffer()
+    const src = await PDFLib.PDFDocument.load(buffer)
+    const out = await PDFLib.PDFDocument.create()
+    const total = src.getPageCount()
+    const pages = await out.copyPages(src, Array.from({ length: total }, (_, i) => i))
+    let cropped = 0
+    for (let i = 0; i < pages.length; i++) {
+      const apply = cropAllCheck.checked || i === cropPageIdx
+      if (!apply) { out.addPage(pages[i]); continue }
+      const p = await addPageBaked(out, pages[i])
+      const w = p.getWidth(), h = p.getHeight()
+      const cw = cropRect.w * w
+      const ch = cropRect.h * h
+      const cx = cropRect.x * w
+      const cy = h - cropRect.y * h - ch
+      p.setMediaBox(cx, cy, cw, ch)
+      p.setCropBox(cx, cy, cw, ch)
+      cropped++
+    }
+    const bytes = await out.save()
+    const base = cropFileRef.name.replace(/\.pdf$/i, "")
+    downloadBytes(bytes, base + "_cropped.pdf")
+    setStatus(cropStatus, "Done. " + cropped + " page(s) cropped.", "success")
+    track("crop_success", { pages: cropped })
+  } catch (err) {
+    console.error("crop error:", err)
+    setStatus(cropStatus, encryptedMsg(err) ? ENCRYPTED_HINT : "Failed to process file.", "error")
+    track("crop_error")
+  } finally {
+    setBusy(cropBtn, false, "Crop PDF", "Processing...")
+  }
+})
+cropCard.addEventListener("dragover", (e) => handleDragOver(cropCard, e))
+cropCard.addEventListener("dragenter", (e) => handleDragOver(cropCard, e))
+cropCard.addEventListener("dragleave", (e) => handleDragLeave(cropCard, e))
+cropCard.addEventListener("drop", (e) => {
+  e.preventDefault()
+  e.stopPropagation()
+  cropCard.classList.remove("drag-over")
+  const files = Array.from(e.dataTransfer.files || []).filter(f => f.type === "application/pdf" || f.name.endsWith(".pdf"))
+  if (files.length === 0) return
+  const dt = new DataTransfer()
+  dt.items.add(files[0])
+  cropFileInput.files = dt.files
+  cropFileInput.dispatchEvent(new Event("change"))
+})
+
